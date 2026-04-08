@@ -1,3 +1,14 @@
+---
+title: Slideshow_v1
+emoji: 🖼️
+colorFrom: blue
+colorTo: purple
+sdk: gradio
+sdk_version: "4.44.0"
+app_file: app.py
+pinned: false
+---
+
 # Slide Render UI (Gradio Space)
 
 Готовая структура для запуска в Hugging Face Space (SDK: **Gradio**).
