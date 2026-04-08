@@ -1,0 +1,176 @@
+:root {
+  --bg: #0f1115;
+  --panel: #171a21;
+  --panel-2: #1f2330;
+  --text: #f4f6fa;
+  --muted: #b9c0cf;
+  --accent: #4f8cff;
+  --border: #2a3040;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: radial-gradient(circle at top, #1b2130, #0d0f15 55%);
+  color: var(--text);
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+}
+
+.app-shell {
+  width: min(1400px, 96vw);
+  margin: 20px auto;
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 24px;
+}
+
+.preview-panel,
+.controls-panel {
+  background: color-mix(in srgb, var(--panel) 88%, black);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 18px;
+}
+
+h1,
+h2 {
+  margin: 0 0 14px;
+  font-size: 18px;
+}
+
+.preview-frame {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.slide-canvas {
+  position: relative;
+  width: min(100%, 540px);
+  aspect-ratio: 2 / 3;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #111;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+}
+
+.bg-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  filter: contrast(1.01) saturate(1.05);
+}
+
+.overlay-row {
+  position: absolute;
+  left: 56px;
+  top: 26%;
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+
+.app-icon {
+  width: 92px;
+  height: 92px;
+  border-radius: 22px;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 5px 18px rgba(0, 0, 0, 0.4);
+}
+
+.app-title {
+  font-size: clamp(30px, 3.1vw, 66px);
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  color: #fff;
+  text-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+.slides-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.slide-tab {
+  border: 1px solid var(--border);
+  background: #131723;
+  color: var(--muted);
+  padding: 6px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.slide-tab.active {
+  color: #fff;
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 25%, #0f131d);
+}
+
+.form-card {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+label {
+  display: grid;
+  gap: 7px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+input {
+  width: 100%;
+  padding: 10px 11px;
+  border-radius: 9px;
+  border: 1px solid #394158;
+  background: #0f1421;
+  color: #f5f7ff;
+}
+
+.actions {
+  margin-top: 14px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn.ghost {
+  background: #111520;
+  color: #dee5f5;
+}
+
+.btn.primary {
+  background: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 70%, white);
+  color: #fff;
+}
+
+@media (max-width: 1100px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .slide-canvas {
+    width: min(100%, 460px);
+  }
+}
