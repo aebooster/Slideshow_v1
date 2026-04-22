@@ -447,7 +447,8 @@ function renderNode(n){
   }else{
     const tag = el.tagName.toLowerCase();
     if(tag==='g'){
-      el.setAttribute('transform',`translate(${n.pos.x},${n.pos.y})`);
+      // Keep existing non-translate transforms (matrix/rotate/scale) and only update translate part.
+      sTr(el,n.pos.x,n.pos.y);
     }else{
       const hasXY = el.hasAttribute('x')||el.hasAttribute('y');
       if(el.hasAttribute('x')) el.setAttribute('x',n.pos.x);
