@@ -159,8 +159,89 @@ function build(n,parent=null){
 
 function mapSVG(){
   svgMap.clear();
-  document.querySelectorAll('[data-figma-id]').forEach(el=>{
-    svgMap.set(el.getAttribute('data-figma-id'),el);
+  if(!svg)return;
+  svg.querySelectorAll('*').forEach(el=>{
+    const fid=el.getAttribute('data-figma-id');
+    const id=el.getAttribute('id');
+    if(fid)svgMap.set(fid,el);
+    if(id&&!svgMap.has(id))svgMap.set(id,el);
+  });
+}
+
+function walkNodes(n,fn){
+  if(!n||typeof n!=='object')return;
+  fn(n);
+  if(Array.isArray(n.children))n.children.forEach(c=>walkNodes(c,fn));
+}
+
+function resolveLayoutRoot(data){
+  if(!data||typeof data!=='object')return null;
+  if(data.layoutJson)return resolveLayoutRoot(data.layoutJson);
+  if(data.layout)return resolveLayoutRoot(data.layout);
+  if(data.document)return resolveLayoutRoot(data.document);
+  if(data.root)return resolveLayoutRoot(data.root);
+  if(Array.isArray(data))return resolveLayoutRoot(data[0]);
+  if(data.nodes&&typeof data.nodes==='object'){
+    const vals=Object.values(data.nodes);
+    for(const v of vals){const r=resolveLayoutRoot(v?.document||v);if(r)return r;}
+  }
+  const all=[];
+  walkNodes(data,n=>all.push(n));
+  if(svgMap.size){
+    const bySvg=all.find(n=>n?.id&&svgMap.has(n.id));
+    if(bySvg)return bySvg;
+  }
+  const byLayout=all.find(n=>n&&((n.layoutMode&&n.layoutMode!=='NONE')||(Array.isArray(n.children)&&n.children.length)));
+  if(byLayout)return byLayout;
+  if(data.type==='DOCUMENT'&&Array.isArray(data.children)&&data.children.length)return data.children[0];
+  return data;
+}
+
+function wrapText(el,text,maxWidth){
+  const host=el.tagName?.toLowerCase()==='tspan'?(el.closest('text')||el):el;
+  const fs=parseFloat(host.getAttribute('font-size'))||16;
+  const x=parseFloat(host.getAttribute('x'))||0;
+  const y=parseFloat(host.getAttribute('y'))||fs;
+  const lh=fs*1.2;
+  if(!maxWidth||!isFinite(maxWidth)||maxWidth<=0){host.textContent=text;return;}
+  const measure=(line)=>{
+    const t=document.createElementNS('http://www.w3.org/2000/svg','tspan');
+    t.textContent=line;host.appendChild(t);
+    const w=t.getComputedTextLength();
+    t.remove();
+    return w;
+  };
+  const splitLongToken=(token)=>{
+    const parts=[];let cur='';
+    for(const ch of token){
+      const test=cur+ch;
+      if(cur&&measure(test)>maxWidth){parts.push(cur);cur=ch;}else cur=test;
+    }
+    if(cur)parts.push(cur);
+    return parts;
+  };
+  const lines=[];
+  text.split('\n').forEach(p=>{
+    const words=(p||'').trim().split(/\s+/).filter(Boolean);
+    if(!words.length){lines.push('');return;}
+    let line='';
+    words.forEach(w=>{
+      const chunks=measure(w)>maxWidth?splitLongToken(w):[w];
+      chunks.forEach(chunk=>{
+        const test=line?line+' '+chunk:chunk;
+        const long=measure(test)>maxWidth;
+        if(long&&line){lines.push(line);line=chunk;}else line=test;
+      });
+    });
+    lines.push(line);
+  });
+  host.innerHTML='';
+  lines.forEach((ln,i)=>{
+    const t=document.createElementNS('http://www.w3.org/2000/svg','tspan');
+    t.setAttribute('x',x);
+    t.setAttribute('y',y+i*lh);
+    t.textContent=ln;
+    host.appendChild(t);
   });
 }
 
