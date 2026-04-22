@@ -203,6 +203,18 @@ function fixMojibake(s){
     return fixed&&fixed!==str?fixed:str;
   }catch(e){return String(s||'');}
 }
+function decodeHtmlEntities(s){
+  const str=String(s||'');
+  if(!str||!/[&][#a-z0-9]+;/i.test(str))return str;
+  const t=document.createElement('textarea');
+  t.innerHTML=str;
+  return t.value;
+}
+function prettyId(s){
+  const str=String(s||'');
+  if(!str)return str;
+  return decodeHtmlEntities(fixMojibake(str));
+}
 function nodeSvgTag(t){
   const x=String(t||'').toUpperCase();
   if(x==='TEXT')return'text';
@@ -274,7 +286,7 @@ function matchLayoutNodes(root){
     if(el){
       el=adaptMatchedElement(el,n.type);
       layoutToSvg.set(n.id,el);used.add(el);matched++;
-      if(samples.length<20)samples.push({jsonId:n.id,jsonName:n.name||'',type:n.type||'',svgId:el.getAttribute('id')||el.getAttribute('data-figma-id')||'',svgTag:el.tagName.toLowerCase(),mode});
+      if(samples.length<20)samples.push({jsonId:n.id,jsonName:n.name||'',type:n.type||'',svgId:prettyId(el.getAttribute('id')||el.getAttribute('data-figma-id')||''),svgTag:el.tagName.toLowerCase(),mode});
     }else if(misses.length<20){
       misses.push({jsonId:n.id,jsonName:n.name||'',type:n.type||''});
     }
@@ -586,7 +598,7 @@ function renderIdMapTable(rows){
   const box=$('ljMAP');if(!box)return;
   if(!rows?.length){box.innerHTML='<span style="color:var(--t3)">Таблица пуста</span>';return;}
   const color=m=>m==='exact'?'var(--grn)':m==='norm'?'var(--acc)':m==='tail'?'var(--orn)':'var(--red)';
-  const top=rows.slice(0,250).map(r=>`<tr><td style="padding:4px 6px;border-bottom:1px solid var(--brd)">${esc(r.jsonId)}</td><td style="padding:4px 6px;border-bottom:1px solid var(--brd)">${esc(r.svgId)}</td><td style="padding:4px 6px;border-bottom:1px solid var(--brd);color:${color(r.mode)}">${r.mode}</td></tr>`).join('');
+  const top=rows.slice(0,250).map(r=>`<tr><td style="padding:4px 6px;border-bottom:1px solid var(--brd)">${esc(prettyId(r.jsonId))}</td><td style="padding:4px 6px;border-bottom:1px solid var(--brd)">${esc(prettyId(r.svgId))}</td><td style="padding:4px 6px;border-bottom:1px solid var(--brd);color:${color(r.mode)}">${r.mode}</td></tr>`).join('');
   box.innerHTML=`<div style="font-size:9px;color:var(--t3);margin-bottom:6px">Показано ${Math.min(rows.length,250)} из ${rows.length}</div><table style="width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace"><thead><tr><th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--brd2)">JSON id</th><th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--brd2)">SVG id</th><th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--brd2)">Match</th></tr></thead><tbody>${top}</tbody></table>`;
 }
 
@@ -651,7 +663,7 @@ ic.innerHTML=`<svg width="11" height="11" viewBox="0 0 24 24" fill="${tag==='g'|
 const lb=document.createElement('span');lb.className='tl';
 const eid=el.getAttribute('id'),cls=el.getAttribute('class');let lt=tag;
 if(GN.has(nid))lt=GN.get(nid);
-else if(eid)lt='#'+eid;else if(cls)lt='.'+cls.split(/\s+/)[0];
+else if(eid)lt='#'+prettyId(eid);else if(cls)lt='.'+cls.split(/\s+/)[0];
 else{const txt=el.textContent?.trim();if(('text tspan'.includes(tag))&&txt)lt='"'+txt.slice(0,18)+(txt.length>18?'…':'')+'"';}
 lb.textContent=lt;
 if(tag==='g'){lb.addEventListener('dblclick',e=>{e.stopPropagation();renameGroup(nid,lb);});}
@@ -757,7 +769,7 @@ function showMultiProps(){
   selSet.forEach(nid=>{
     const el=nM.get(nid);if(!el)return;
     const tag=el.tagName.toLowerCase();
-    const name=el.id?'#'+el.id:el.textContent?.trim().slice(0,20)||tag;
+    const name=el.id?'#'+prettyId(el.id):el.textContent?.trim().slice(0,20)||tag;
     h+=`<div class="prr" style="cursor:pointer" onclick="selSet.clear();selN('${nid}')"><span class="prk">${tag}</span><span class="prv">${esc(name)}</span></div>`;
   });
   h+=`</div>`;
@@ -874,7 +886,7 @@ function alignEl(dir){
 function sP(el){const c=$('pC');if(!el){c.innerHTML='<div class="empty"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><span>Выберите элемент</span></div>';return;}
 const tag=el.tagName.toLowerCase(),nid=el.dataset.nid,isR=tag==='svg';let h='';
 h+=`<div class="prs"><div class="prst">Слой</div><div class="prr"><span class="prk">Тег</span><span class="prv">&lt;${tag}&gt;</span></div>`;
-if(el.id)h+=`<div class="prr"><span class="prk">ID</span><span class="prv">${el.id}</span></div>`;
+if(el.id)h+=`<div class="prr"><span class="prk">ID</span><span class="prv">${esc(prettyId(el.id))}</span></div>`;
 if(tag==='g')h+=`<div class="pcr"><span class="prk">Имя</span><input class="pin" style="width:130px" id="gName" value="${esc(GN.get(nid)||el.id||'')}" placeholder="Имя группы"></div>`;
 // Color label — all elements including SVG root
 {const curLC=LC.get(nid)||0;
@@ -1201,7 +1213,7 @@ function finN(el){tagA(el);el.addEventListener('click',e=>{e.stopPropagation();s
 function uDB(){$('dBdg').textContent=dynM.size;}
 function bJ(){const o={};dynM.forEach((d,nid)=>{const el=nM.get(nid);if(!el)return;const a=d.alias||nid;d.props.forEach(p=>{if(p==='textContent')o[a+'.text']=el.textContent||'';else if(p==='transform'){const t=gTr(el);o[a+'.translateX']=t.x;o[a+'.translateY']=t.y;}else{const r=el.getAttribute(p)||'';o[a+'.'+p]='x y cx cy r rx ry width height x1 y1 x2 y2 stroke-width opacity font-size font-weight'.split(' ').includes(p)?(parseFloat(r)||0):r;}});});return o;}
 function rJ(){const j=bJ(),o=$('jO');o.textContent=Object.keys(j).length?JSON.stringify(j,null,2):'{ /* Нет dynamic объектов */ }';}
-function rDL(){const c=$('dL');if(!dynM.size){c.innerHTML='<span style="color:var(--t3);font-size:11px">Нет</span>';return;}c.innerHTML='';dynM.forEach((d,nid)=>{const el=nM.get(nid);if(!el)return;const cd=document.createElement('div');cd.className='doc';cd.onclick=()=>{closeM('aM');selN(nid);};cd.innerHTML=`<div><div class="don">${esc(d.alias||nid)}</div><div class="dot2">&lt;${el.tagName.toLowerCase()}&gt;${el.id?' #'+el.id:''}</div></div><div class="dop">${[...d.props].map(p=>p==='textContent'?'text':p).join(', ')}</div>`;c.appendChild(cd);});}
+function rDL(){const c=$('dL');if(!dynM.size){c.innerHTML='<span style="color:var(--t3);font-size:11px">Нет</span>';return;}c.innerHTML='';dynM.forEach((d,nid)=>{const el=nM.get(nid);if(!el)return;const cd=document.createElement('div');cd.className='doc';cd.onclick=()=>{closeM('aM');selN(nid);};cd.innerHTML=`<div><div class="don">${esc(d.alias||nid)}</div><div class="dot2">&lt;${el.tagName.toLowerCase()}&gt;${el.id?' #'+esc(prettyId(el.id)):''}</div></div><div class="dop">${[...d.props].map(p=>p==='textContent'?'text':p).join(', ')}</div>`;c.appendChild(cd);});}
 function cpJ(){const t=JSON.stringify(bJ(),null,2),el=document.createElement('textarea');el.value=t;el.style.cssText='position:fixed;left:-9999px';document.body.appendChild(el);el.select();try{document.execCommand('copy');}catch(e){}document.body.removeChild(el);try{navigator.clipboard.writeText(t).catch(()=>{});}catch(e){}const b=$('cpB');if(b){b.textContent='✓ OK';b.style.color='var(--grn)';setTimeout(()=>{b.textContent='Копировать';b.style.color='';},1200);}}
 
 // FONTS
