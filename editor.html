@@ -124,27 +124,30 @@ function node(id,type){
 function build(n,parent=null){
   const x = node(n.id,n.type);
   LM.set(x.id,x);
+  const ly = n.layout||n;
 
   if(parent){
     x.parent=parent;
     parent.children.push(x);
   }
 
-  if(n.layoutMode){
-    x.layout.mode = n.layoutMode==='VERTICAL'?'VERTICAL':n.layoutMode==='HORIZONTAL'?'HORIZONTAL':'NONE';
-    x.layout.gap = n.itemSpacing||0;
+  if(ly.layoutMode){
+    x.layout.mode = ly.layoutMode==='VERTICAL'?'VERTICAL':ly.layoutMode==='HORIZONTAL'?'HORIZONTAL':'NONE';
+    x.layout.gap = ly.itemSpacing||0;
     x.layout.padding = {
-      t:n.paddingTop||0,
-      r:n.paddingRight||0,
-      b:n.paddingBottom||0,
-      l:n.paddingLeft||0
+      t:ly.paddingTop||0,
+      r:ly.paddingRight||0,
+      b:ly.paddingBottom||0,
+      l:ly.paddingLeft||0
     }
   }
 
   if(n.type==='TEXT'){
-    x.text.content = n.characters||'';
+    x.text.content = n.text?.characters||n.characters||'';
     if(n.absoluteBoundingBox){
       x.text.maxWidth = n.absoluteBoundingBox.width;
+    }else if(n.bounds?.width){
+      x.text.maxWidth = n.bounds.width;
     }
   }
 
@@ -205,20 +208,28 @@ function matchLayoutNodes(root){
   const pool=[...svg.querySelectorAll('*')];
   const used=new Set();
   let seq=0,matched=0;
+  const samples=[];
+  const misses=[];
   walkNodes(root,n=>{
     if(!n||!n.id)return;
-    let el=svgMap.get(n.id)||svgNormMap.get(normK(n.id));
+    let mode='miss';
+    let el=svgMap.get(n.id);
+    if(el)mode='exact';
+    if(!el){
+      el=svgNormMap.get(normK(n.id));
+      if(el)mode='norm-id';
+    }
     if(!el){
       const tail=tailK(n.id);
       const byTail=tail?svgTailMap.get(tail):null;
-      if(byTail?.length)el=byTail.find(x=>!used.has(x))||byTail[0];
+      if(byTail?.length){el=byTail.find(x=>!used.has(x))||byTail[0];mode='tail-id';}
     }
     if(!el&&n.name){
       const byName=svgNameMap.get(normK(n.name));
-      if(byName?.length)el=byName.find(x=>!used.has(x))||byName[0];
+      if(byName?.length){el=byName.find(x=>!used.has(x))||byName[0];mode='name';}
       if(!el){
         const byNameTail=svgTailMap.get(tailK(n.name));
-        if(byNameTail?.length)el=byNameTail.find(x=>!used.has(x))||byNameTail[0];
+        if(byNameTail?.length){el=byNameTail.find(x=>!used.has(x))||byNameTail[0];mode='tail-name';}
       }
     }
     if(!el){
@@ -229,14 +240,21 @@ function matchLayoutNodes(root){
           if(used.has(c))continue;
           const ct=c.tagName.toLowerCase();
           if(ct===tag||(tag==='path'&&'path polygon polyline'.includes(ct))||(tag==='ellipse'&&'circle ellipse'.includes(ct))){
-            el=c;seq=i+1;break;
+            el=c;mode='tag-seq';seq=i+1;break;
           }
         }
       }
     }
-    if(el){layoutToSvg.set(n.id,el);used.add(el);matched++;}
+    if(el){
+      layoutToSvg.set(n.id,el);used.add(el);matched++;
+      if(samples.length<20)samples.push({jsonId:n.id,jsonName:n.name||'',type:n.type||'',svgId:el.getAttribute('id')||el.getAttribute('data-figma-id')||'',svgTag:el.tagName.toLowerCase(),mode});
+    }else if(misses.length<20){
+      misses.push({jsonId:n.id,jsonName:n.name||'',type:n.type||''});
+    }
   });
   lgL('matching complete',{layoutNodes:layoutToSvg.size,svgNodes:pool.length,matched});
+  lgL('matching samples',samples);
+  if(misses.length)lgL('matching misses',misses);
 }
 
 function walkNodes(n,fn){
