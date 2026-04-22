@@ -76,7 +76,7 @@
 <!-- API MODAL -->
 <div class="mo" id="aM" onclick="if(event.target===this)closeM('aM')"><div class="md" style="width:600px"><div class="mh"><span class="mt">⚡ API</span><button class="mx" onclick="closeM('aM')">&times;</button></div><div class="mb"><div class="ms"><p style="font-size:11px;color:var(--t2);line-height:1.5">Формат: <code style="background:var(--bgH);padding:1px 5px;border-radius:3px;font-size:10px">"alias.prop": value</code></p></div><div class="ms"><div class="msl" style="justify-content:space-between"><span>JSON</span><button class="btn" style="padding:2px 8px;font-size:9px" id="cpB" onclick="cpJ()">Копировать</button></div><pre id="jO" style="background:var(--inp);border:1px solid var(--brd);border-radius:6px;padding:12px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--t1);overflow:auto;max-height:300px;white-space:pre-wrap;line-height:1.4"></pre></div><div class="ms"><div class="msl">Объекты</div><div id="dL"></div></div></div></div></div>
 <!-- LAYOUT JSON MODAL -->
-<div class="mo" id="ljM" onclick="if(event.target===this)closeM('ljM')"><div class="md" style="width:680px"><div class="mh"><span class="mt">🧩 Layout JSON</span><button class="mx" onclick="closeM('ljM')">&times;</button></div><div class="mb"><div class="ms"><p style="font-size:11px;color:var(--t2);line-height:1.5">Вставьте JSON целиком. Поддерживается: <code style="background:var(--bgH);padding:1px 5px;border-radius:3px;font-size:10px">layoutJson/layout/document/root/nodes</code>.</p><textarea id="ljTA" class="gfi" style="min-height:260px;resize:vertical;width:100%;font-family:'JetBrains Mono',monospace" placeholder='{"layoutJson": {...}}'></textarea><div style="display:flex;gap:6px;margin-top:10px"><button class="btn btn-p" onclick="applyLayoutJSONText()">Применить JSON</button><button class="btn" onclick="$('ljTA').value=''">Очистить</button><button class="btn" onclick="clearLayoutLogs()">Очистить лог</button></div><div id="ljST" style="margin-top:8px;font-size:10px;color:var(--t3)"></div><pre id="ljLOG" style="margin-top:8px;max-height:150px;overflow:auto;background:var(--inp);border:1px solid var(--brd);border-radius:6px;padding:8px;font-size:10px;color:var(--t2);white-space:pre-wrap"></pre></div></div></div></div>
+<div class="mo" id="ljM" onclick="if(event.target===this)closeM('ljM')"><div class="md" style="width:680px"><div class="mh"><span class="mt">🧩 Layout JSON</span><button class="mx" onclick="closeM('ljM')">&times;</button></div><div class="mb"><div class="ms"><p style="font-size:11px;color:var(--t2);line-height:1.5">Вставьте JSON целиком. Поддерживается: <code style="background:var(--bgH);padding:1px 5px;border-radius:3px;font-size:10px">layoutJson/layout/document/root/nodes</code>.</p><textarea id="ljTA" class="gfi" style="min-height:260px;resize:vertical;width:100%;font-family:'JetBrains Mono',monospace" placeholder='{"layoutJson": {...}}'></textarea><div style="display:flex;gap:6px;margin-top:10px"><button class="btn btn-p" onclick="applyLayoutJSONText()">Применить JSON</button><button class="btn" onclick="$('ljTA').value=''">Очистить</button></div><div id="ljST" style="margin-top:8px;font-size:10px;color:var(--t3)"></div></div></div></div></div>
 
 <script>
 const $=id=>document.getElementById(id);
@@ -192,50 +192,33 @@ function resolveLayoutRoot(data){
 }
 
 function wrapText(el,text,maxWidth){
-  const host=el.tagName?.toLowerCase()==='tspan'?(el.closest('text')||el):el;
-  const fs=parseFloat(host.getAttribute('font-size'))||16;
-  const x=parseFloat(host.getAttribute('x'))||0;
-  const y=parseFloat(host.getAttribute('y'))||fs;
+  const fs=parseFloat(el.getAttribute('font-size'))||16;
+  const x=parseFloat(el.getAttribute('x'))||0;
+  const y=parseFloat(el.getAttribute('y'))||fs;
   const lh=fs*1.2;
-  if(!maxWidth||!isFinite(maxWidth)||maxWidth<=0){host.textContent=text;return;}
-  const measure=(line)=>{
-    const t=document.createElementNS('http://www.w3.org/2000/svg','tspan');
-    t.textContent=line;host.appendChild(t);
-    const w=t.getComputedTextLength();
-    t.remove();
-    return w;
-  };
-  const splitLongToken=(token)=>{
-    const parts=[];let cur='';
-    for(const ch of token){
-      const test=cur+ch;
-      if(cur&&measure(test)>maxWidth){parts.push(cur);cur=ch;}else cur=test;
-    }
-    if(cur)parts.push(cur);
-    return parts;
-  };
+  if(!maxWidth||!isFinite(maxWidth)||maxWidth<=0){el.textContent=text;return;}
   const lines=[];
   text.split('\n').forEach(p=>{
     const words=(p||'').trim().split(/\s+/).filter(Boolean);
     if(!words.length){lines.push('');return;}
     let line='';
     words.forEach(w=>{
-      const chunks=measure(w)>maxWidth?splitLongToken(w):[w];
-      chunks.forEach(chunk=>{
-        const test=line?line+' '+chunk:chunk;
-        const long=measure(test)>maxWidth;
-        if(long&&line){lines.push(line);line=chunk;}else line=test;
-      });
+      const test=line?line+' '+w:w;
+      const t=document.createElementNS('http://www.w3.org/2000/svg','tspan');
+      t.textContent=test;el.appendChild(t);
+      const long=t.getComputedTextLength()>maxWidth;
+      t.remove();
+      if(long&&line){lines.push(line);line=w;}else line=test;
     });
     lines.push(line);
   });
-  host.innerHTML='';
+  el.innerHTML='';
   lines.forEach((ln,i)=>{
     const t=document.createElementNS('http://www.w3.org/2000/svg','tspan');
     t.setAttribute('x',x);
     t.setAttribute('y',y+i*lh);
     t.textContent=ln;
-    host.appendChild(t);
+    el.appendChild(t);
   });
 }
 
@@ -344,15 +327,7 @@ function openM(id){$(id).classList.add('open');if(id==='fM'){uDU();uLU();}if(id=
 function closeM(id){$(id).classList.remove('open');}
 function handleFile(f){if(!f)return;const r=new FileReader();r.onload=e=>loadSVG(e.target.result);r.readAsText(f);}
 function handleDrop(e){e.preventDefault();e.currentTarget.classList.remove('dragover');const f=e.dataTransfer.files[0];if(f?.name.endsWith('.svg'))handleFile(f);}
-const layoutLogs=[];
-function updLayoutLogUI(){const el=$('ljLOG');if(!el)return;el.textContent=layoutLogs.join('\n')||'Лог пуст';el.scrollTop=el.scrollHeight;}
-function clearLayoutLogs(){layoutLogs.length=0;updLayoutLogUI();}
-function lgL(msg,data){
-  const line='['+new Date().toLocaleTimeString()+'] '+msg+(data!==undefined?' '+JSON.stringify(data):'');
-  layoutLogs.push(line);if(layoutLogs.length>200)layoutLogs.shift();
-  updLayoutLogUI();
-  if(data!==undefined)console.log('[LayoutImport]',msg,data);else console.log('[LayoutImport]',msg);
-}
+function lgL(msg,data){if(data!==undefined)console.log('[LayoutImport]',msg,data);else console.log('[LayoutImport]',msg);}
 function applyLayoutPayload(data,src='unknown'){
   lgL('apply start: '+src,{svgLoaded:!!svg,svgMapped:svgMap.size});
   if(data?.svg){lgL('svg detected in payload, loading svg first');loadSVG(data.svg);}
