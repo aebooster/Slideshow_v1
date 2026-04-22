@@ -238,6 +238,28 @@ function adaptMatchedElement(el,type){
   }
   return el;
 }
+function canRepresentType(el,type){
+  if(!el)return false;
+  const want=nodeSvgTag(type);
+  if(!want)return true;
+  const tag=el.tagName.toLowerCase();
+  if(tag===want)return true;
+  if(want==='path'&&'path polygon polyline'.includes(tag))return true;
+  if(want==='ellipse'&&'circle ellipse'.includes(tag))return true;
+  if(tag==='g')return !!el.querySelector(want==='path'?'path,polygon,polyline':want==='ellipse'?'ellipse,circle':want);
+  return false;
+}
+function pickCandidate(candidates,used,type,parentSvg,strictParent=false){
+  if(!candidates?.length)return null;
+  let list=candidates.filter(el=>canRepresentType(el,type));
+  if(parentSvg){
+    const inside=list.filter(el=>el===parentSvg||parentSvg.contains(el));
+    if(inside.length)list=inside;
+    else if(strictParent)return null;
+  }
+  if(!list.length)return null;
+  return list.find(el=>!used.has(el))||list[0];
+}
 function matchLayoutNodes(root){
   layoutToSvg.clear();
   if(!svg)return;
@@ -246,51 +268,64 @@ function matchLayoutNodes(root){
   let seq=0,matched=0;
   const samples=[];
   const misses=[];
-  walkNodes(root,n=>{
-    if(!n||!n.id)return;
-    let mode='miss';
-    let el=svgMap.get(n.id);
-    if(el)mode='exact';
-    if(!el){
-      el=svgNormMap.get(normK(n.id));
-      if(el)mode='norm-id';
-    }
-    if(!el){
-      const tail=tailK(n.id);
-      const byTail=tail?svgTailMap.get(tail):null;
-      if(byTail?.length){el=byTail.find(x=>!used.has(x))||byTail[0];mode='tail-id';}
-    }
-    if(!el&&n.name){
-      const byName=svgNameMap.get(normK(n.name));
-      if(byName?.length){el=byName.find(x=>!used.has(x))||byName[0];mode='name';}
+
+  const visit=(n,parentLayoutId=null)=>{
+    if(!n||typeof n!=='object')return;
+    const type=String(n.type||'').toUpperCase();
+    const parentSvg=parentLayoutId?layoutToSvg.get(parentLayoutId):null;
+    if(n.id){
+      let mode='miss';
+      let el=svgMap.get(n.id);
+      if(el&&(!parentSvg||parentSvg.contains(el)||el===parentSvg)&&canRepresentType(el,type))mode='exact';
+      else el=null;
+
       if(!el){
-        const byNameTail=svgTailMap.get(tailK(n.name));
-        if(byNameTail?.length){el=byNameTail.find(x=>!used.has(x))||byNameTail[0];mode='tail-name';}
+        const normEl=svgNormMap.get(normK(n.id));
+        if(normEl&&(!parentSvg||parentSvg.contains(normEl)||normEl===parentSvg)&&canRepresentType(normEl,type)){el=normEl;mode='norm-id';}
       }
-    }
-    if(!el){
-      const type=String(n.type||'').toUpperCase();
-      const tag=nodeSvgTag(type);
-      const allowTagSeq=!['FRAME','GROUP','COMPONENT','INSTANCE'].includes(type);
-      if(tag&&allowTagSeq){
-        for(let i=seq;i<pool.length;i++){
-          const c=pool[i];
-          if(used.has(c))continue;
-          const ct=c.tagName.toLowerCase();
-          if(ct===tag||(tag==='path'&&'path polygon polyline'.includes(ct))||(tag==='ellipse'&&'circle ellipse'.includes(ct))){
-            el=c;mode='tag-seq';seq=i+1;break;
+      if(!el){
+        const byTail=tailK(n.id)?svgTailMap.get(tailK(n.id)):null;
+        el=pickCandidate(byTail,used,type,parentSvg,false);
+        if(el)mode='tail-id';
+      }
+      if(!el&&n.name){
+        const byName=svgNameMap.get(normK(n.name));
+        el=pickCandidate(byName,used,type,parentSvg,true);
+        if(el)mode='name';
+        if(!el){
+          const byNameTail=tailK(n.name)?svgTailMap.get(tailK(n.name)):null;
+          el=pickCandidate(byNameTail,used,type,parentSvg,true);
+          if(el)mode='tail-name';
+        }
+      }
+      if(!el){
+        const tag=nodeSvgTag(type);
+        const allowTagSeq=!['FRAME','GROUP','COMPONENT','INSTANCE','SECTION'].includes(type);
+        if(tag&&allowTagSeq){
+          for(let i=seq;i<pool.length;i++){
+            const c=pool[i];
+            if(used.has(c))continue;
+            if(parentSvg&&!(c===parentSvg||parentSvg.contains(c)))continue;
+            const ct=c.tagName.toLowerCase();
+            if(ct===tag||(tag==='path'&&'path polygon polyline'.includes(ct))||(tag==='ellipse'&&'circle ellipse'.includes(ct))){
+              el=c;mode='tag-seq';seq=i+1;break;
+            }
           }
         }
       }
+
+      if(el){
+        el=adaptMatchedElement(el,n.type);
+        layoutToSvg.set(n.id,el);used.add(el);matched++;
+        if(samples.length<20)samples.push({jsonId:n.id,jsonName:n.name||'',type:n.type||'',svgId:prettyId(el.getAttribute('id')||el.getAttribute('data-figma-id')||''),svgTag:el.tagName.toLowerCase(),mode,parentSvgId:prettyId(parentSvg?.getAttribute?.('id')||parentSvg?.getAttribute?.('data-figma-id')||'')});
+      }else if(misses.length<20){
+        misses.push({jsonId:n.id,jsonName:n.name||'',type:n.type||'',parentJsonId:parentLayoutId||''});
+      }
     }
-    if(el){
-      el=adaptMatchedElement(el,n.type);
-      layoutToSvg.set(n.id,el);used.add(el);matched++;
-      if(samples.length<20)samples.push({jsonId:n.id,jsonName:n.name||'',type:n.type||'',svgId:prettyId(el.getAttribute('id')||el.getAttribute('data-figma-id')||''),svgTag:el.tagName.toLowerCase(),mode});
-    }else if(misses.length<20){
-      misses.push({jsonId:n.id,jsonName:n.name||'',type:n.type||''});
-    }
-  });
+    if(Array.isArray(n.children))n.children.forEach(c=>visit(c,n.id||parentLayoutId));
+  };
+
+  visit(root,null);
   lgL('matching complete',{layoutNodes:layoutToSvg.size,svgNodes:pool.length,matched});
   lgL('matching samples',samples);
   if(misses.length)lgL('matching misses',misses);
