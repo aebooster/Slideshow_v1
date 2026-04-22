@@ -61,7 +61,7 @@
 </style>
 </head>
 <body>
-<div class="hdr"><div class="hdr-b"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--acc)" stroke-width="2"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>HUIGMA</div><div class="hdr-a"><a href="/" class="btn" title="На главную">🏠</a><button class="btn" id="saveBtn" onclick="saveTemplate()" title="Ctrl+S">💾 Save</button><button class="thm" onclick="toggleTheme()" id="thmB">☀</button><button class="btn" onclick="$('fI').click()">Open SVG</button><button class="btn" onclick="$('packI').click()">Import SVG+Layout</button><button class="btn" onclick="openM('fM')">Fonts <span class="bdg" id="fBdg">0</span></button><button class="btn" onclick="openM('aM')">API <span class="bdg" id="dBdg">0</span></button><input type="file" id="fI" accept=".svg" style="display:none" onchange="handleFile(this.files[0])"><input type="file" id="packI" accept=".zip,.json" style="display:none" onchange="handlePackFile(this.files[0])"></div></div>
+<div class="hdr"><div class="hdr-b"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--acc)" stroke-width="2"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>HUIGMA</div><div class="hdr-a"><a href="/" class="btn" title="На главную">🏠</a><button class="btn" id="saveBtn" onclick="saveTemplate()" title="Ctrl+S">💾 Save</button><button class="thm" onclick="toggleTheme()" id="thmB">☀</button><button class="btn" onclick="$('fI').click()">Open SVG</button><button class="btn" onclick="$('packI').click()">Import SVG+Layout</button><button class="btn" onclick="openM('ljM')">Paste Layout JSON</button><button class="btn" onclick="openM('fM')">Fonts <span class="bdg" id="fBdg">0</span></button><button class="btn" onclick="openM('aM')">API <span class="bdg" id="dBdg">0</span></button><input type="file" id="fI" accept=".svg" style="display:none" onchange="handleFile(this.files[0])"><input type="file" id="packI" accept=".zip,.json" style="display:none" onchange="handlePackFile(this.files[0])"></div></div>
 <div class="ws">
 <div class="pl"><div class="ph">Layers <span class="bdg" id="nC">0</span></div><div class="tc0" id="tC"></div></div>
 <div class="cv">
@@ -75,6 +75,8 @@
 <div class="mo" id="fM" onclick="if(event.target===this)closeM('fM')"><div class="md"><div class="mh"><span class="mt">🔤 Fonts</span><button class="mx" onclick="closeM('fM')">&times;</button></div><div class="mb"><div class="ms"><div class="msl">В SVG</div><div class="df" id="dF"><span style="color:var(--t3);font-size:11px">Загрузите SVG</span></div></div><div class="ms"><div class="msl">Google Fonts</div><div style="display:flex;gap:6px;margin-bottom:10px"><input class="gfi" id="gfS" placeholder="Поиск…" oninput="searchGF(this.value)"></div><div class="gfr" id="gfR"></div></div><div class="ms"><div class="msl">Свой файл</div><div class="fuz" onclick="$('ffI').click()" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="hFDrop(event)">.woff2 .woff .ttf .otf<p>Перетащите или кликните</p></div><input type="file" id="ffI" accept=".woff2,.woff,.ttf,.otf" multiple style="display:none" onchange="hFF(this.files)"><div id="fnP"></div></div><div class="ms"><div class="msl">Загруженные</div><div class="ll" id="lF"><span style="color:var(--t3);font-size:11px">Нет</span></div></div></div></div></div>
 <!-- API MODAL -->
 <div class="mo" id="aM" onclick="if(event.target===this)closeM('aM')"><div class="md" style="width:600px"><div class="mh"><span class="mt">⚡ API</span><button class="mx" onclick="closeM('aM')">&times;</button></div><div class="mb"><div class="ms"><p style="font-size:11px;color:var(--t2);line-height:1.5">Формат: <code style="background:var(--bgH);padding:1px 5px;border-radius:3px;font-size:10px">"alias.prop": value</code></p></div><div class="ms"><div class="msl" style="justify-content:space-between"><span>JSON</span><button class="btn" style="padding:2px 8px;font-size:9px" id="cpB" onclick="cpJ()">Копировать</button></div><pre id="jO" style="background:var(--inp);border:1px solid var(--brd);border-radius:6px;padding:12px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--t1);overflow:auto;max-height:300px;white-space:pre-wrap;line-height:1.4"></pre></div><div class="ms"><div class="msl">Объекты</div><div id="dL"></div></div></div></div></div>
+<!-- LAYOUT JSON MODAL -->
+<div class="mo" id="ljM" onclick="if(event.target===this)closeM('ljM')"><div class="md" style="width:680px"><div class="mh"><span class="mt">🧩 Layout JSON</span><button class="mx" onclick="closeM('ljM')">&times;</button></div><div class="mb"><div class="ms"><p style="font-size:11px;color:var(--t2);line-height:1.5">Вставьте JSON целиком. Поддерживается: <code style="background:var(--bgH);padding:1px 5px;border-radius:3px;font-size:10px">layoutJson/layout/document/root/nodes</code>.</p><textarea id="ljTA" class="gfi" style="min-height:260px;resize:vertical;width:100%;font-family:'JetBrains Mono',monospace" placeholder='{"layoutJson": {...}}'></textarea><div style="display:flex;gap:6px;margin-top:10px"><button class="btn btn-p" onclick="applyLayoutJSONText()">Применить JSON</button><button class="btn" onclick="$('ljTA').value=''">Очистить</button></div><div id="ljST" style="margin-top:8px;font-size:10px;color:var(--t3)"></div></div></div></div></div>
 
 <script>
 const $=id=>document.getElementById(id);
@@ -325,6 +327,13 @@ function openM(id){$(id).classList.add('open');if(id==='fM'){uDU();uLU();}if(id=
 function closeM(id){$(id).classList.remove('open');}
 function handleFile(f){if(!f)return;const r=new FileReader();r.onload=e=>loadSVG(e.target.result);r.readAsText(f);}
 function handleDrop(e){e.preventDefault();e.currentTarget.classList.remove('dragover');const f=e.dataTransfer.files[0];if(f?.name.endsWith('.svg'))handleFile(f);}
+function lgL(msg,data){if(data!==undefined)console.log('[LayoutImport]',msg,data);else console.log('[LayoutImport]',msg);}
+function applyLayoutPayload(data,src='unknown'){
+  lgL('apply start: '+src,{svgLoaded:!!svg,svgMapped:svgMap.size});
+  if(data?.svg){lgL('svg detected in payload, loading svg first');loadSVG(data.svg);}
+  const payload=data?.layoutJson??data?.layout??data;
+  loadLayoutJSON(payload,src);
+}
 async function handlePackFile(file){
   if(!file)return;
   const name=(file.name||'').toLowerCase();
@@ -332,10 +341,7 @@ async function handlePackFile(file){
     if(name.endsWith('.json')){
       const txt=await file.text();
       const data=JSON.parse(txt);
-      if(data.svg)loadSVG(data.svg);
-      if(data.layoutJson)loadLayoutJSON(data.layoutJson);
-      else if(data.layout)loadLayoutJSON(data.layout);
-      else loadLayoutJSON(data);
+      applyLayoutPayload(data,'file:'+file.name);
       return;
     }
     if(!name.endsWith('.zip')){alert('Поддерживаются только .zip или .json');return;}
@@ -350,13 +356,25 @@ async function handlePackFile(file){
     if(jsonName){
       const jsonText=await zip.file(jsonName).async('string');
       const data=JSON.parse(jsonText);
-      if(data.layoutJson)loadLayoutJSON(data.layoutJson);
-      else if(data.layout)loadLayoutJSON(data.layout);
-      else loadLayoutJSON(data);
+      applyLayoutPayload(data,'zip:'+file.name+'/'+jsonName);
     }
   }catch(err){
     console.error('Pack import error',err);
     alert('Ошибка импорта SVG+Layout: '+(err?.message||err));
+  }
+}
+function applyLayoutJSONText(){
+  const st=$('ljST');
+  try{
+    const txt=$('ljTA').value.trim();
+    if(!txt){st.textContent='Пустой JSON';st.style.color='var(--red)';return;}
+    const data=JSON.parse(txt);
+    applyLayoutPayload(data,'manual-text');
+    st.textContent='JSON применён (см. консоль [LayoutImport])';
+    st.style.color='var(--grn)';
+  }catch(err){
+    st.textContent='Ошибка JSON: '+(err?.message||err);
+    st.style.color='var(--red)';
   }
 }
 
@@ -373,12 +391,18 @@ function loadSVG(t){
 }
 function tagA(el){const id='n'+(nc++);el.dataset.nid=id;nM.set(id,el);for(const c of el.children)tagA(c);}
 
-function loadLayoutJSON(json){
+function loadLayoutJSON(json,src='unknown'){
   LM.clear();
+  lgL('loadLayoutJSON start: '+src,{hasJson:!!json,svgMapped:svgMap.size});
   const root = resolveLayoutRoot(json);
-  if(!root){console.warn('Layout root not found');return;}
+  if(!root){console.warn('[LayoutImport] Layout root not found',json);return;}
+  let matched=0,total=0;
+  walkNodes(root,n=>{if(n?.id){total++;if(svgMap.has(n.id))matched++;}});
+  lgL('resolved root',{id:root.id,type:root.type,children:root.children?.length||0,totalNodes:total,matchedSvgNodes:matched});
   rootNode = build(root);
+  lgL('build complete',{lmSize:LM.size,rootId:rootNode?.id});
   relayout();
+  lgL('relayout complete');
 }
 
 // TREE
