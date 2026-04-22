@@ -91,13 +91,21 @@ let isDrEl=false,dES=null,dEO=null;
 const vp=$('vp');
 const svgMap = new Map();
 const LM = new Map();
+const colorCanvasCtx = document.createElement('canvas').getContext('2d');
 let rootNode = null;
+function onSvgClick(e){
+  const hit = e.target.closest?.('[data-nid]');
+  if(!hit||!svg||!svg.contains(hit))return;
+  e.stopPropagation();
+  selN(hit.dataset.nid,e);
+}
 
 function node(id,type){
   return {
     id,type,
     children:[],
     parent:null,
+    abs:{x:0,y:0},
     layout:{mode:'NONE',gap:0,padding:{t:0,r:0,b:0,l:0}},
     size:{w:0,h:0},
     pos:{x:0,y:0},
@@ -115,7 +123,7 @@ function build(n,parent=null){
   }
 
   if(n.layoutMode){
-    x.layout.mode = n.layoutMode==='VERTICAL'?'VERTICAL':'HORIZONTAL';
+    x.layout.mode = n.layoutMode==='VERTICAL'?'VERTICAL':n.layoutMode==='HORIZONTAL'?'HORIZONTAL':'NONE';
     x.layout.gap = n.itemSpacing||0;
     x.layout.padding = {
       t:n.paddingTop||0,
@@ -133,6 +141,8 @@ function build(n,parent=null){
   }
 
   if(n.absoluteBoundingBox){
+    x.abs.x = n.absoluteBoundingBox.x||0;
+    x.abs.y = n.absoluteBoundingBox.y||0;
     x.size.w = n.absoluteBoundingBox.width;
     x.size.h = n.absoluteBoundingBox.height;
   }
@@ -188,7 +198,14 @@ function layoutNode(n,x=0,y=0){
   n.pos.x=x;
   n.pos.y=y;
 
-  if(n.layout.mode==='NONE') return;
+  if(n.layout.mode==='NONE'){
+    n.children.forEach(c=>{
+      const relX = c.abs.x - n.abs.x;
+      const relY = c.abs.y - n.abs.y;
+      layoutNode(c,x+relX,y+relY);
+    });
+    return;
+  }
 
   let cx=x+n.layout.padding.l;
   let cy=y+n.layout.padding.t;
@@ -239,7 +256,7 @@ function renderNode(n){
 function relayout(){
   if(!rootNode) return;
   measureNode(rootNode);
-  layoutNode(rootNode,50,50);
+  layoutNode(rootNode,0,0);
   renderNode(rootNode);
 }
 
@@ -255,7 +272,9 @@ function loadSVG(t){
   const vb=s.viewBox?.baseVal;if(vb?.width&&vb?.height){if(!s.getAttribute('width'))s.setAttribute('width',vb.width);if(!s.getAttribute('height'))s.setAttribute('height',vb.height);}
   const c=$('sC');c.innerHTML='';c.appendChild(s);tagA(s);
   mapSVG();
-  s.querySelectorAll('*').forEach(el=>{el.addEventListener('click',e=>{e.stopPropagation();if(el.dataset.nid)selN(el.dataset.nid,e);});el.style.cursor='pointer';});
+  s.removeEventListener('click',onSvgClick);
+  s.addEventListener('click',onSvgClick);
+  s.querySelectorAll('*').forEach(el=>{el.style.cursor='pointer';});
   $('dz').classList.add('has');$('hlo').style.display='none';sP(null);bT();detFonts();uDB();fitV();
 }
 function tagA(el){const id='n'+(nc++);el.dataset.nid=id;nM.set(id,el);for(const c of el.children)tagA(c);}
@@ -421,10 +440,8 @@ function groupSel(){
   // Create group
   const g=document.createElementNS('http://www.w3.org/2000/svg','g');
   // Insert group before first selected element
-  const sorted=[...els].sort((a,b)=>{
-    const children=Array.from(parent.children);
-    return children.indexOf(a)-children.indexOf(b);
-  });
+  const indexMap=new Map(Array.from(parent.children,(node,idx)=>[node,idx]));
+  const sorted=[...els].sort((a,b)=>indexMap.get(a)-indexMap.get(b));
   parent.insertBefore(g,sorted[0]);
   // Move elements into group
   sorted.forEach(el=>g.appendChild(el));
@@ -598,7 +615,7 @@ h+=`</div></div></div>`;}
 c.innerHTML=h;bindI(el);}
 function pCR(a,v){const hx=c2h(v||'#000');return `<div class="pcr"><span class="prk">${a}</span><input type="color" class="pci" data-ap="${a}" value="${hx}"><input class="pin" style="width:68px" data-ap="${a}" value="${esc(v)}" placeholder="none"></div>`;}
 function mI(l,a,v){return `<div class="pip"><span class="pil" data-sc="${a}">${l}</span><input class="pin" type="number" step="1" data-pa="${a}" value="${Math.round(v*100)/100}"></div>`;}
-function c2h(c){if(!c||c==='none'||c==='transparent')return'#000000';if(/^#[0-9a-f]{6}$/i.test(c))return c;if(/^#[0-9a-f]{3}$/i.test(c))return'#'+c[1]+c[1]+c[2]+c[2]+c[3]+c[3];if(c.startsWith('rgb')){const m=c.match(/(\d+)/g);if(m?.length>=3)return'#'+m.slice(0,3).map(n=>(+n).toString(16).padStart(2,'0')).join('');}try{const x=document.createElement('canvas').getContext('2d');x.fillStyle=c;return x.fillStyle;}catch(e){}return'#000000';}
+function c2h(c){if(!c||c==='none'||c==='transparent')return'#000000';if(/^#[0-9a-f]{6}$/i.test(c))return c;if(/^#[0-9a-f]{3}$/i.test(c))return'#'+c[1]+c[1]+c[2]+c[2]+c[3]+c[3];if(c.startsWith('rgb')){const m=c.match(/(\d+)/g);if(m?.length>=3)return'#'+m.slice(0,3).map(n=>(+n).toString(16).padStart(2,'0')).join('');}try{if(!colorCanvasCtx)return'#000000';colorCanvasCtx.fillStyle=c;return colorCanvasCtx.fillStyle;}catch(e){}return'#000000';}
 function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
 
 // Auto-layout engine
