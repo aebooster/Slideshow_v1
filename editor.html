@@ -174,24 +174,35 @@ function mapSVG(){
   svg.querySelectorAll('*').forEach(el=>{
     const fid=el.getAttribute('data-figma-id');
     const id=el.getAttribute('id');
-    if(fid)svgMap.set(fid,el);
-    if(id&&!svgMap.has(id))svgMap.set(id,el);
-    const nId=normK(id||fid||'');
-    if(nId&&!svgNormMap.has(nId))svgNormMap.set(nId,el);
-    const nName=normK(el.getAttribute('data-name')||id||'');
-    if(nName){
+    const rawKeys=[fid,id].filter(Boolean);
+    const fixedKeys=rawKeys.map(fixMojibake).filter(Boolean);
+    const allKeys=[...new Set([...rawKeys,...fixedKeys])];
+    allKeys.forEach(k=>{if(!svgMap.has(k))svgMap.set(k,el);});
+    allKeys.forEach(k=>{const nk=normK(k);if(nk&&!svgNormMap.has(nk))svgNormMap.set(nk,el);});
+    const rawName=el.getAttribute('data-name')||id||'';
+    const nameKeys=[rawName,fixMojibake(rawName)].filter(Boolean).map(normK).filter(Boolean);
+    nameKeys.forEach(nName=>{
       if(!svgNameMap.has(nName))svgNameMap.set(nName,[]);
       svgNameMap.get(nName).push(el);
-    }
-    const tail=tailK(fid||id||'');
-    if(tail){
-      if(!svgTailMap.has(tail))svgTailMap.set(tail,[]);
-      svgTailMap.get(tail).push(el);
-    }
+    });
+    allKeys.forEach(k=>{
+      const tail=tailK(k);
+      if(tail){
+        if(!svgTailMap.has(tail))svgTailMap.set(tail,[]);
+        svgTailMap.get(tail).push(el);
+      }
+    });
   });
 }
 function normK(s){return String(s||'').toLowerCase().replace(/[^a-z0-9а-яё]+/gi,'');}
 function tailK(s){const m=String(s||'').match(/\d+/g);return m?m.join(''):'';}
+function fixMojibake(s){
+  try{
+    const str=String(s||'');
+    const fixed=decodeURIComponent(escape(str));
+    return fixed&&fixed!==str?fixed:str;
+  }catch(e){return String(s||'');}
+}
 function nodeSvgTag(t){
   const x=String(t||'').toUpperCase();
   if(x==='TEXT')return'text';
@@ -246,8 +257,10 @@ function matchLayoutNodes(root){
       }
     }
     if(!el){
-      const tag=nodeSvgTag(n.type);
-      if(tag){
+      const type=String(n.type||'').toUpperCase();
+      const tag=nodeSvgTag(type);
+      const allowTagSeq=!['FRAME','GROUP','COMPONENT','INSTANCE'].includes(type);
+      if(tag&&allowTagSeq){
         for(let i=seq;i<pool.length;i++){
           const c=pool[i];
           if(used.has(c))continue;
