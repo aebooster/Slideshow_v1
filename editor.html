@@ -266,7 +266,8 @@ function walkNodes(n,fn){
 function resolveLayoutRoot(data){
   if(!data||typeof data!=='object')return null;
   if(data.layoutJson)return resolveLayoutRoot(data.layoutJson);
-  if(data.layout)return resolveLayoutRoot(data.layout);
+  // unwrap generic wrappers that only contain layout payload
+  if(data.layout && !data.id && !data.type && !Array.isArray(data.children))return resolveLayoutRoot(data.layout);
   // Figma-export wrappers: { frame: {...}, meta: {...} }
   if(data.frame)return resolveLayoutRoot(data.frame);
   if(data.document)return resolveLayoutRoot(data.document);
@@ -283,7 +284,7 @@ function resolveLayoutRoot(data){
     const bySvg=all.find(n=>n?.id&&svgMap.has(n.id));
     if(bySvg)return bySvg;
   }
-  const byLayout=all.find(n=>n&&((n.layoutMode&&n.layoutMode!=='NONE')||(Array.isArray(n.children)&&n.children.length)||n.type==='FRAME'));
+  const byLayout=all.find(n=>n&&(n.id||n.type||n.name)&&((n.layoutMode&&n.layoutMode!=='NONE')||(n.layout?.layoutMode&&n.layout.layoutMode!=='NONE')||(Array.isArray(n.children)&&n.children.length)||n.type==='FRAME'));
   if(byLayout)return byLayout;
   if(data.type==='DOCUMENT'&&Array.isArray(data.children)&&data.children.length)return data.children[0];
   if(data.type==='FRAME'||data.type==='GROUP')return data;
