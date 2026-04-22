@@ -323,7 +323,7 @@ function relayout(){
 }
 
 function toggleTheme(){const h=document.documentElement,n=h.dataset.theme==='dark'?'light':'dark';h.dataset.theme=n;$('thmB').textContent=n==='dark'?'☀':'🌙';}
-function openM(id){$(id).classList.add('open');if(id==='fM'){uDU();uLU();}if(id==='aM'){rJ();rDL();}}
+function openM(id){$(id).classList.add('open');if(id==='fM'){uDU();uLU();}if(id==='aM'){rJ();rDL();}if(id==='ljM')updLayoutLogUI();}
 function closeM(id){$(id).classList.remove('open');}
 function handleFile(f){if(!f)return;const r=new FileReader();r.onload=e=>loadSVG(e.target.result);r.readAsText(f);}
 function handleDrop(e){e.preventDefault();e.currentTarget.classList.remove('dragover');const f=e.dataTransfer.files[0];if(f?.name.endsWith('.svg'))handleFile(f);}
