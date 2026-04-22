@@ -93,6 +93,8 @@ let tool='select',isDraw=false,dSt=null,dEl=null;
 let isDrEl=false,dES=null,dEO=null;
 const vp=$('vp');
 const svgMap = new Map();
+const svgNormMap = new Map();
+const svgNameMap = new Map();
 const LM = new Map();
 const colorCanvasCtx = document.createElement('canvas').getContext('2d');
 let rootNode = null;
@@ -304,7 +306,7 @@ function wrapText(el,text,maxWidth){
 }
 
 function measureNode(n){
-  const el = svgMap.get(n.id);
+  const el = layoutToSvg.get(n.id)||svgMap.get(n.id);
 
   if(n.type==='TEXT' && el){
     wrapText(el,n.text.content,n.text.maxWidth);
@@ -364,7 +366,7 @@ function layoutNode(n,x=0,y=0){
 }
 
 function renderNode(n){
-  const el = svgMap.get(n.id);
+  const el = layoutToSvg.get(n.id)||svgMap.get(n.id);
   if(!el) return;
 
   if(n.type==='TEXT'){
