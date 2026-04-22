@@ -305,10 +305,12 @@ function renderNode(n){
     if(tag==='g'){
       el.setAttribute('transform',`translate(${n.pos.x},${n.pos.y})`);
     }else{
+      const hasXY = el.hasAttribute('x')||el.hasAttribute('y');
       if(el.hasAttribute('x')) el.setAttribute('x',n.pos.x);
       if(el.hasAttribute('y')) el.setAttribute('y',n.pos.y);
       if(el.hasAttribute('width')) el.setAttribute('width',n.size.w);
       if(el.hasAttribute('height')) el.setAttribute('height',n.size.h);
+      if(!hasXY) sTr(el,n.pos.x,n.pos.y);
     }
   }
 
