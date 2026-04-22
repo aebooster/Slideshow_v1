@@ -76,7 +76,7 @@
 <!-- API MODAL -->
 <div class="mo" id="aM" onclick="if(event.target===this)closeM('aM')"><div class="md" style="width:600px"><div class="mh"><span class="mt">⚡ API</span><button class="mx" onclick="closeM('aM')">&times;</button></div><div class="mb"><div class="ms"><p style="font-size:11px;color:var(--t2);line-height:1.5">Формат: <code style="background:var(--bgH);padding:1px 5px;border-radius:3px;font-size:10px">"alias.prop": value</code></p></div><div class="ms"><div class="msl" style="justify-content:space-between"><span>JSON</span><button class="btn" style="padding:2px 8px;font-size:9px" id="cpB" onclick="cpJ()">Копировать</button></div><pre id="jO" style="background:var(--inp);border:1px solid var(--brd);border-radius:6px;padding:12px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--t1);overflow:auto;max-height:300px;white-space:pre-wrap;line-height:1.4"></pre></div><div class="ms"><div class="msl">Объекты</div><div id="dL"></div></div></div></div></div>
 <!-- LAYOUT JSON MODAL -->
-<div class="mo" id="ljM" onclick="if(event.target===this)closeM('ljM')"><div class="md" style="width:680px"><div class="mh"><span class="mt">🧩 Layout JSON</span><button class="mx" onclick="closeM('ljM')">&times;</button></div><div class="mb"><div class="ms"><p style="font-size:11px;color:var(--t2);line-height:1.5">Вставьте JSON целиком. Поддерживается: <code style="background:var(--bgH);padding:1px 5px;border-radius:3px;font-size:10px">layoutJson/layout/document/root/nodes</code>.</p><textarea id="ljTA" class="gfi" style="min-height:260px;resize:vertical;width:100%;font-family:'JetBrains Mono',monospace" placeholder='{"layoutJson": {...}}'></textarea><div style="display:flex;gap:6px;margin-top:10px"><button class="btn btn-p" onclick="applyLayoutJSONText()">Применить JSON</button><button class="btn" onclick="$('ljTA').value=''">Очистить</button><button class="btn" onclick="clearLayoutLogs()">Очистить лог</button></div><div id="ljST" style="margin-top:8px;font-size:10px;color:var(--t3)"></div><pre id="ljLOG" style="margin-top:8px;max-height:150px;overflow:auto;background:var(--inp);border:1px solid var(--brd);border-radius:6px;padding:8px;font-size:10px;color:var(--t2);white-space:pre-wrap"></pre></div></div></div></div>
+<div class="mo" id="ljM" onclick="if(event.target===this)closeM('ljM')"><div class="md" style="width:680px"><div class="mh"><span class="mt">🧩 Layout JSON</span><button class="mx" onclick="closeM('ljM')">&times;</button></div><div class="mb"><div class="ms"><p style="font-size:11px;color:var(--t2);line-height:1.5">Вставьте JSON целиком. Поддерживается: <code style="background:var(--bgH);padding:1px 5px;border-radius:3px;font-size:10px">layoutJson/layout/document/root/nodes</code>.</p><textarea id="ljTA" class="gfi" style="min-height:260px;resize:vertical;width:100%;font-family:'JetBrains Mono',monospace" placeholder='{"layoutJson": {...}}'></textarea><div style="display:flex;gap:6px;margin-top:10px"><button class="btn btn-p" onclick="applyLayoutJSONText()">Применить JSON</button><button class="btn" onclick="$('ljTA').value=''">Очистить</button></div><div id="ljST" style="margin-top:8px;font-size:10px;color:var(--t3)"></div></div></div></div></div>
 
 <script>
 const $=id=>document.getElementById(id);
@@ -96,7 +96,6 @@ const svgMap = new Map();
 const svgNormMap = new Map();
 const svgNameMap = new Map();
 const LM = new Map();
-const layoutToSvg = new Map();
 const colorCanvasCtx = document.createElement('canvas').getContext('2d');
 let rootNode = null;
 function onSvgClick(e){
@@ -162,63 +161,13 @@ function build(n,parent=null){
 
 function mapSVG(){
   svgMap.clear();
-  svgNormMap.clear();
-  svgNameMap.clear();
   if(!svg)return;
   svg.querySelectorAll('*').forEach(el=>{
     const fid=el.getAttribute('data-figma-id');
     const id=el.getAttribute('id');
     if(fid)svgMap.set(fid,el);
     if(id&&!svgMap.has(id))svgMap.set(id,el);
-    const nId=normK(id||fid||'');
-    if(nId&&!svgNormMap.has(nId))svgNormMap.set(nId,el);
-    const nName=normK(el.getAttribute('data-name')||id||'');
-    if(nName){
-      if(!svgNameMap.has(nName))svgNameMap.set(nName,[]);
-      svgNameMap.get(nName).push(el);
-    }
   });
-}
-function normK(s){return String(s||'').toLowerCase().replace(/[^a-z0-9а-яё]+/gi,'');}
-function nodeSvgTag(t){
-  const x=String(t||'').toUpperCase();
-  if(x==='TEXT')return'text';
-  if(x==='RECTANGLE')return'rect';
-  if(x==='ELLIPSE')return'ellipse';
-  if(x==='LINE')return'line';
-  if('FRAME GROUP COMPONENT INSTANCE'.split(' ').includes(x))return'g';
-  if('VECTOR BOOLEAN_OPERATION STAR POLYGON'.split(' ').includes(x))return'path';
-  return null;
-}
-function matchLayoutNodes(root){
-  layoutToSvg.clear();
-  if(!svg)return;
-  const pool=[...svg.querySelectorAll('*')];
-  const used=new Set();
-  let seq=0,matched=0;
-  walkNodes(root,n=>{
-    if(!n||!n.id)return;
-    let el=svgMap.get(n.id)||svgNormMap.get(normK(n.id));
-    if(!el&&n.name){
-      const byName=svgNameMap.get(normK(n.name));
-      if(byName?.length)el=byName.find(x=>!used.has(x))||byName[0];
-    }
-    if(!el){
-      const tag=nodeSvgTag(n.type);
-      if(tag){
-        for(let i=seq;i<pool.length;i++){
-          const c=pool[i];
-          if(used.has(c))continue;
-          const ct=c.tagName.toLowerCase();
-          if(ct===tag||(tag==='path'&&'path polygon polyline'.includes(ct))||(tag==='ellipse'&&'circle ellipse'.includes(ct))){
-            el=c;seq=i+1;break;
-          }
-        }
-      }
-    }
-    if(el){layoutToSvg.set(n.id,el);used.add(el);matched++;}
-  });
-  lgL('matching complete',{layoutNodes:layoutToSvg.size,svgNodes:pool.length,matched});
 }
 
 function walkNodes(n,fn){
@@ -295,6 +244,64 @@ function wrapText(el,text,maxWidth){
     t.setAttribute('y',y+i*lh);
     t.textContent=ln;
     host.appendChild(t);
+  });
+}
+
+function walkNodes(n,fn){
+  if(!n||typeof n!=='object')return;
+  fn(n);
+  if(Array.isArray(n.children))n.children.forEach(c=>walkNodes(c,fn));
+}
+
+function resolveLayoutRoot(data){
+  if(!data||typeof data!=='object')return null;
+  if(data.layoutJson)return resolveLayoutRoot(data.layoutJson);
+  if(data.layout)return resolveLayoutRoot(data.layout);
+  if(data.document)return resolveLayoutRoot(data.document);
+  if(data.root)return resolveLayoutRoot(data.root);
+  if(Array.isArray(data))return resolveLayoutRoot(data[0]);
+  if(data.nodes&&typeof data.nodes==='object'){
+    const vals=Object.values(data.nodes);
+    for(const v of vals){const r=resolveLayoutRoot(v?.document||v);if(r)return r;}
+  }
+  const all=[];
+  walkNodes(data,n=>all.push(n));
+  if(svgMap.size){
+    const bySvg=all.find(n=>n?.id&&svgMap.has(n.id));
+    if(bySvg)return bySvg;
+  }
+  if(data.type==='DOCUMENT'&&Array.isArray(data.children)&&data.children.length)return data.children[0];
+  return data;
+}
+
+function wrapText(el,text,maxWidth){
+  const fs=parseFloat(el.getAttribute('font-size'))||16;
+  const x=parseFloat(el.getAttribute('x'))||0;
+  const y=parseFloat(el.getAttribute('y'))||fs;
+  const lh=fs*1.2;
+  if(!maxWidth||!isFinite(maxWidth)||maxWidth<=0){el.textContent=text;return;}
+  const lines=[];
+  text.split('\n').forEach(p=>{
+    const words=(p||'').trim().split(/\s+/).filter(Boolean);
+    if(!words.length){lines.push('');return;}
+    let line='';
+    words.forEach(w=>{
+      const test=line?line+' '+w:w;
+      const t=document.createElementNS('http://www.w3.org/2000/svg','tspan');
+      t.textContent=test;el.appendChild(t);
+      const long=t.getComputedTextLength()>maxWidth;
+      t.remove();
+      if(long&&line){lines.push(line);line=w;}else line=test;
+    });
+    lines.push(line);
+  });
+  el.innerHTML='';
+  lines.forEach((ln,i)=>{
+    const t=document.createElementNS('http://www.w3.org/2000/svg','tspan');
+    t.setAttribute('x',x);
+    t.setAttribute('y',y+i*lh);
+    t.textContent=ln;
+    el.appendChild(t);
   });
 }
 
@@ -401,19 +408,11 @@ function relayout(){
 }
 
 function toggleTheme(){const h=document.documentElement,n=h.dataset.theme==='dark'?'light':'dark';h.dataset.theme=n;$('thmB').textContent=n==='dark'?'☀':'🌙';}
-function openM(id){$(id).classList.add('open');if(id==='fM'){uDU();uLU();}if(id==='aM'){rJ();rDL();}if(id==='ljM'&&typeof updLayoutLogUI==='function')updLayoutLogUI();}
+function openM(id){$(id).classList.add('open');if(id==='fM'){uDU();uLU();}if(id==='aM'){rJ();rDL();}if(id==='ljM')updLayoutLogUI();}
 function closeM(id){$(id).classList.remove('open');}
 function handleFile(f){if(!f)return;const r=new FileReader();r.onload=e=>loadSVG(e.target.result);r.readAsText(f);}
 function handleDrop(e){e.preventDefault();e.currentTarget.classList.remove('dragover');const f=e.dataTransfer.files[0];if(f?.name.endsWith('.svg'))handleFile(f);}
-const layoutLogs=[];
-function updLayoutLogUI(){const el=$('ljLOG');if(!el)return;el.textContent=layoutLogs.join('\n')||'Лог пуст';el.scrollTop=el.scrollHeight;}
-function clearLayoutLogs(){layoutLogs.length=0;updLayoutLogUI();}
-function lgL(msg,data){
-  const line='['+new Date().toLocaleTimeString()+'] '+msg+(data!==undefined?' '+JSON.stringify(data):'');
-  layoutLogs.push(line);if(layoutLogs.length>200)layoutLogs.shift();
-  updLayoutLogUI();
-  if(data!==undefined)console.log('[LayoutImport]',msg,data);else console.log('[LayoutImport]',msg);
-}
+function lgL(msg,data){if(data!==undefined)console.log('[LayoutImport]',msg,data);else console.log('[LayoutImport]',msg);}
 function applyLayoutPayload(data,src='unknown'){
   lgL('apply start: '+src,{svgLoaded:!!svg,svgMapped:svgMap.size});
   if(data?.svg){lgL('svg detected in payload, loading svg first');loadSVG(data.svg);}
@@ -485,9 +484,6 @@ function loadLayoutJSON(json,src='unknown'){
   let matched=0,total=0;
   walkNodes(root,n=>{if(n?.id){total++;if(svgMap.has(n.id))matched++;}});
   lgL('resolved root',{id:root.id,type:root.type,children:root.children?.length||0,totalNodes:total,matchedSvgNodes:matched});
-  if(!svgMap.size){lgL('abort: svgMap is empty (no data-figma-id or id attributes found)');return;}
-  if(!total&&!(Array.isArray(root.children)&&root.children.length)){lgL('abort: resolved root has no traversable nodes',root);return;}
-  matchLayoutNodes(root);
   rootNode = build(root);
   lgL('build complete',{lmSize:LM.size,rootId:rootNode?.id});
   relayout();
