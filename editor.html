@@ -878,7 +878,14 @@ function hl(el){const o=$('hlo');if(!el||el.tagName.toLowerCase()==='svg'||hidS.
 
 // POSITION
 function pA(el){const t=el.tagName.toLowerCase();if('rect image use foreignObject'.includes(t))return{x:'x',y:'y',w:'width',h:'height'};if(t==='circle')return{cx:'cx',cy:'cy',r:'r'};if(t==='ellipse')return{cx:'cx',cy:'cy',rx:'rx',ry:'ry'};if('text tspan'.includes(t))return{x:'x',y:'y'};if(t==='line')return{x1:'x1',y1:'y1',x2:'x2',y2:'y2'};if('g path polygon polyline'.includes(t))return{_t:1};return null;}
-function gTr(el){const m=(el.getAttribute('transform')||'').match(/translate\(\s*([-\d.]+)[,\s]+([-\d.]+)\s*\)/);return m?{x:+m[1],y:+m[2]}:{x:0,y:0};}
+function gTr(el){
+  const t=el.getAttribute('transform')||'';
+  const mt=t.match(/translate\(\s*([-\d.]+)(?:[,\s]+([-\d.]+))?\s*\)/);
+  if(mt)return{x:+mt[1]||0,y:+(mt[2]??0)||0};
+  const mm=t.match(/matrix\(\s*[-\d.eE]+[ ,]+[-\d.eE]+[ ,]+[-\d.eE]+[ ,]+[-\d.eE]+[ ,]+([-\d.eE]+)[ ,]+([-\d.eE]+)\s*\)/);
+  if(mm)return{x:+mm[1]||0,y:+mm[2]||0};
+  return{x:0,y:0};
+}
 function sTr(el,x,y){let t=el.getAttribute('transform')||'';t=/translate\(/.test(t)?t.replace(/translate\([^)]*\)/,`translate(${x},${y})`):`translate(${x},${y}) ${t}`.trim();el.setAttribute('transform',t);}
 
 // Alignment
@@ -940,7 +947,7 @@ if(isR){
   const svbx=vb?.x||0, svby=vb?.y||0;
   const sw=vb?.width||parseFloat(el.getAttribute('width'))||0;
   const sh=vb?.height||parseFloat(el.getAttribute('height'))||0;
-  h+=`<div class="prs"><div class="prst">Размер и позиция</div><div class="pig" data-role="pos-grid">`;
+  h+=`<div class="prs"><div class="prst">Размер и позиция</div><div class="pig" id="pI" data-role="pos-grid">`;
   h+=mI('X','_svgX',svbx)+mI('Y','_svgY',svby)+mI('W','_svgW',sw)+mI('H','_svgH',sh);
   h+=`</div></div>`;
 }
@@ -955,7 +962,7 @@ for(const ay of ayOpts)for(const ax of axOpts){
   h+=`<div class="anc-dot${isAct?' act':''}" data-anc="${ax},${ay}"><span class="dp"></span></div>`;
 }
 h+=`</div><span class="anc-lbl">Якорь при<br>ресайзе</span></div>`;
-h+=`<div class="pig" data-role="pos-grid">`;if(pi._t){const t=gTr(el);h+=mI('X','tx',t.x)+mI('Y','ty',t.y);}else for(const[l,a]of Object.entries(pi))h+=mI(l.toUpperCase(),a,parseFloat(el.getAttribute(a))||0);h+=`</div></div>`;}
+h+=`<div class="pig" id="pI" data-role="pos-grid">`;if(pi._t){let b={x:0,y:0,width:0,height:0};try{b=el.getBBox();}catch(e){}h+=mI('X','gx',b.x)+mI('Y','gy',b.y)+mI('W','gw',b.width)+mI('H','gh',b.height);}else for(const[l,a]of Object.entries(pi))h+=mI(l.toUpperCase(),a,parseFloat(el.getAttribute(a))||0);h+=`</div></div>`;}
 // Layout section (groups only)
 if(tag==='g'&&!isR){
   const ly=LAY.get(nid)||{on:false,dir:'v',gap:0,pt:0,pr:0,pb:0,pl:0,align:'start'};
@@ -1093,7 +1100,19 @@ const pw=$('pI');if(pw){const pi=pA(el),tf=pi&&pi._t;
 const sizeAttrs=new Set(['width','height','r','rx','ry','w','h']);
 pw.querySelectorAll('.pin').forEach(i=>i.addEventListener('input',()=>{
   const a=i.dataset.pa,v=+i.value||0;
-  if(tf){const t=gTr(el);a==='tx'?sTr(el,v,t.y):sTr(el,t.x,v);}
+  if(tf){
+    if(a==='gx'||a==='gy'){
+      let b={x:0,y:0};try{b=el.getBBox();}catch(e){}
+      const t=gTr(el);
+      if(a==='gx')sTr(el,Math.round((t.x+(v-b.x))*10)/10,t.y);
+      else sTr(el,t.x,Math.round((t.y+(v-b.y))*10)/10);
+      let nb={x:0,y:0,width:0,height:0};try{nb=el.getBBox();}catch(e){}
+      const xI=pw.querySelector('[data-pa="gx"]'),yI=pw.querySelector('[data-pa="gy"]'),wI=pw.querySelector('[data-pa="gw"]'),hI=pw.querySelector('[data-pa="gh"]');
+      if(xI)xI.value=Math.round(nb.x*10)/10; if(yI)yI.value=Math.round(nb.y*10)/10;
+      if(wI)wI.value=Math.round(nb.width*10)/10; if(hI)hI.value=Math.round(nb.height*10)/10;
+    }
+    return;
+  }
   else{
     // Check if this is a size attr that needs anchor compensation
     const anc=ANC.get(nid)||{ax:'l',ay:'t'};
