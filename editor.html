@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SVG INSPECTOR</title>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <style>
 [data-theme="dark"]{--bg0:#0d0f12;--bg1:#151820;--bg2:#1a1e28;--bgH:#222838;--bgA:#2a3148;--brd:#2a2f3d;--brd2:#3d4560;--t1:#e8ecf4;--t2:#8891a5;--t3:#5a6378;--acc:#6c8cff;--accD:rgba(108,140,255,.15);--accG:rgba(108,140,255,.3);--grn:#2ed573;--red:#ff6b6b;--pur:#a855f7;--cyn:#22d3ee;--orn:#ff9f43;--pnk:#f472b6;--chk:#181c24;--shd:rgba(0,0,0,.5);--inp:#0d0f12}
 [data-theme="light"]{--bg0:#f0f2f5;--bg1:#fff;--bg2:#f7f8fa;--bgH:#eef0f4;--bgA:#e2e6ed;--brd:#d8dce5;--brd2:#c0c6d2;--t1:#1a1d24;--t2:#5a6070;--t3:#8a90a0;--acc:#4a6cf7;--accD:rgba(74,108,247,.1);--accG:rgba(74,108,247,.2);--grn:#1ba854;--red:#dc3545;--pur:#8b3fd9;--cyn:#0ea5c0;--orn:#e8850a;--pnk:#d63384;--chk:#e4e7ec;--shd:rgba(0,0,0,.12);--inp:#f0f2f5}
@@ -60,7 +61,7 @@
 </style>
 </head>
 <body>
-<div class="hdr"><div class="hdr-b"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--acc)" stroke-width="2"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>HUIGMA</div><div class="hdr-a"><a href="/" class="btn" title="На главную">🏠</a><button class="btn" id="saveBtn" onclick="saveTemplate()" title="Ctrl+S">💾 Save</button><button class="thm" onclick="toggleTheme()" id="thmB">☀</button><button class="btn" onclick="$('fI').click()">Open SVG</button><button class="btn" onclick="openM('fM')">Fonts <span class="bdg" id="fBdg">0</span></button><button class="btn" onclick="openM('aM')">API <span class="bdg" id="dBdg">0</span></button><input type="file" id="fI" accept=".svg" style="display:none" onchange="handleFile(this.files[0])"></div></div>
+<div class="hdr"><div class="hdr-b"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--acc)" stroke-width="2"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg>HUIGMA</div><div class="hdr-a"><a href="/" class="btn" title="На главную">🏠</a><button class="btn" id="saveBtn" onclick="saveTemplate()" title="Ctrl+S">💾 Save</button><button class="thm" onclick="toggleTheme()" id="thmB">☀</button><button class="btn" onclick="$('fI').click()">Open SVG</button><button class="btn" onclick="$('packI').click()">Import SVG+Layout</button><button class="btn" onclick="openM('fM')">Fonts <span class="bdg" id="fBdg">0</span></button><button class="btn" onclick="openM('aM')">API <span class="bdg" id="dBdg">0</span></button><input type="file" id="fI" accept=".svg" style="display:none" onchange="handleFile(this.files[0])"><input type="file" id="packI" accept=".zip,.json" style="display:none" onchange="handlePackFile(this.files[0])"></div></div>
 <div class="ws">
 <div class="pl"><div class="ph">Layers <span class="bdg" id="nC">0</span></div><div class="tc0" id="tC"></div></div>
 <div class="cv">
@@ -91,13 +92,21 @@ let isDrEl=false,dES=null,dEO=null;
 const vp=$('vp');
 const svgMap = new Map();
 const LM = new Map();
+const colorCanvasCtx = document.createElement('canvas').getContext('2d');
 let rootNode = null;
+function onSvgClick(e){
+  const hit = e.target.closest?.('[data-nid]');
+  if(!hit||!svg||!svg.contains(hit))return;
+  e.stopPropagation();
+  selN(hit.dataset.nid,e);
+}
 
 function node(id,type){
   return {
     id,type,
     children:[],
     parent:null,
+    abs:{x:0,y:0},
     layout:{mode:'NONE',gap:0,padding:{t:0,r:0,b:0,l:0}},
     size:{w:0,h:0},
     pos:{x:0,y:0},
@@ -115,7 +124,7 @@ function build(n,parent=null){
   }
 
   if(n.layoutMode){
-    x.layout.mode = n.layoutMode==='VERTICAL'?'VERTICAL':'HORIZONTAL';
+    x.layout.mode = n.layoutMode==='VERTICAL'?'VERTICAL':n.layoutMode==='HORIZONTAL'?'HORIZONTAL':'NONE';
     x.layout.gap = n.itemSpacing||0;
     x.layout.padding = {
       t:n.paddingTop||0,
@@ -133,6 +142,8 @@ function build(n,parent=null){
   }
 
   if(n.absoluteBoundingBox){
+    x.abs.x = n.absoluteBoundingBox.x||0;
+    x.abs.y = n.absoluteBoundingBox.y||0;
     x.size.w = n.absoluteBoundingBox.width;
     x.size.h = n.absoluteBoundingBox.height;
   }
@@ -188,7 +199,14 @@ function layoutNode(n,x=0,y=0){
   n.pos.x=x;
   n.pos.y=y;
 
-  if(n.layout.mode==='NONE') return;
+  if(n.layout.mode==='NONE'){
+    n.children.forEach(c=>{
+      const relX = c.abs.x - n.abs.x;
+      const relY = c.abs.y - n.abs.y;
+      layoutNode(c,x+relX,y+relY);
+    });
+    return;
+  }
 
   let cx=x+n.layout.padding.l;
   let cy=y+n.layout.padding.t;
@@ -239,7 +257,7 @@ function renderNode(n){
 function relayout(){
   if(!rootNode) return;
   measureNode(rootNode);
-  layoutNode(rootNode,50,50);
+  layoutNode(rootNode,0,0);
   renderNode(rootNode);
 }
 
@@ -248,6 +266,40 @@ function openM(id){$(id).classList.add('open');if(id==='fM'){uDU();uLU();}if(id=
 function closeM(id){$(id).classList.remove('open');}
 function handleFile(f){if(!f)return;const r=new FileReader();r.onload=e=>loadSVG(e.target.result);r.readAsText(f);}
 function handleDrop(e){e.preventDefault();e.currentTarget.classList.remove('dragover');const f=e.dataTransfer.files[0];if(f?.name.endsWith('.svg'))handleFile(f);}
+async function handlePackFile(file){
+  if(!file)return;
+  const name=(file.name||'').toLowerCase();
+  try{
+    if(name.endsWith('.json')){
+      const txt=await file.text();
+      const data=JSON.parse(txt);
+      if(data.svg)loadSVG(data.svg);
+      if(data.layoutJson)loadLayoutJSON(data.layoutJson);
+      else if(data.layout)loadLayoutJSON(data.layout);
+      else loadLayoutJSON(data);
+      return;
+    }
+    if(!name.endsWith('.zip')){alert('Поддерживаются только .zip или .json');return;}
+    if(typeof JSZip==='undefined'){alert('ZIP importer не загружен (JSZip)');return;}
+    const zip=await JSZip.loadAsync(file);
+    const names=Object.keys(zip.files);
+    const svgName=names.find(n=>n.toLowerCase().endsWith('.svg'));
+    const jsonName=names.find(n=>n.toLowerCase().includes('layout')&&n.toLowerCase().endsWith('.json'))||names.find(n=>n.toLowerCase().endsWith('.json'));
+    if(!svgName){alert('В архиве не найден .svg файл');return;}
+    const svgText=await zip.file(svgName).async('string');
+    loadSVG(svgText);
+    if(jsonName){
+      const jsonText=await zip.file(jsonName).async('string');
+      const data=JSON.parse(jsonText);
+      if(data.layoutJson)loadLayoutJSON(data.layoutJson);
+      else if(data.layout)loadLayoutJSON(data.layout);
+      else loadLayoutJSON(data);
+    }
+  }catch(err){
+    console.error('Pack import error',err);
+    alert('Ошибка импорта SVG+Layout: '+(err?.message||err));
+  }
+}
 
 function loadSVG(t){
   const d=new DOMParser().parseFromString(t,'image/svg+xml'),s=d.querySelector('svg');if(!s)return;
@@ -255,7 +307,9 @@ function loadSVG(t){
   const vb=s.viewBox?.baseVal;if(vb?.width&&vb?.height){if(!s.getAttribute('width'))s.setAttribute('width',vb.width);if(!s.getAttribute('height'))s.setAttribute('height',vb.height);}
   const c=$('sC');c.innerHTML='';c.appendChild(s);tagA(s);
   mapSVG();
-  s.querySelectorAll('*').forEach(el=>{el.addEventListener('click',e=>{e.stopPropagation();if(el.dataset.nid)selN(el.dataset.nid,e);});el.style.cursor='pointer';});
+  s.removeEventListener('click',onSvgClick);
+  s.addEventListener('click',onSvgClick);
+  s.querySelectorAll('*').forEach(el=>{el.style.cursor='pointer';});
   $('dz').classList.add('has');$('hlo').style.display='none';sP(null);bT();detFonts();uDB();fitV();
 }
 function tagA(el){const id='n'+(nc++);el.dataset.nid=id;nM.set(id,el);for(const c of el.children)tagA(c);}
@@ -421,10 +475,8 @@ function groupSel(){
   // Create group
   const g=document.createElementNS('http://www.w3.org/2000/svg','g');
   // Insert group before first selected element
-  const sorted=[...els].sort((a,b)=>{
-    const children=Array.from(parent.children);
-    return children.indexOf(a)-children.indexOf(b);
-  });
+  const indexMap=new Map(Array.from(parent.children,(node,idx)=>[node,idx]));
+  const sorted=[...els].sort((a,b)=>indexMap.get(a)-indexMap.get(b));
   parent.insertBefore(g,sorted[0]);
   // Move elements into group
   sorted.forEach(el=>g.appendChild(el));
@@ -598,7 +650,7 @@ h+=`</div></div></div>`;}
 c.innerHTML=h;bindI(el);}
 function pCR(a,v){const hx=c2h(v||'#000');return `<div class="pcr"><span class="prk">${a}</span><input type="color" class="pci" data-ap="${a}" value="${hx}"><input class="pin" style="width:68px" data-ap="${a}" value="${esc(v)}" placeholder="none"></div>`;}
 function mI(l,a,v){return `<div class="pip"><span class="pil" data-sc="${a}">${l}</span><input class="pin" type="number" step="1" data-pa="${a}" value="${Math.round(v*100)/100}"></div>`;}
-function c2h(c){if(!c||c==='none'||c==='transparent')return'#000000';if(/^#[0-9a-f]{6}$/i.test(c))return c;if(/^#[0-9a-f]{3}$/i.test(c))return'#'+c[1]+c[1]+c[2]+c[2]+c[3]+c[3];if(c.startsWith('rgb')){const m=c.match(/(\d+)/g);if(m?.length>=3)return'#'+m.slice(0,3).map(n=>(+n).toString(16).padStart(2,'0')).join('');}try{const x=document.createElement('canvas').getContext('2d');x.fillStyle=c;return x.fillStyle;}catch(e){}return'#000000';}
+function c2h(c){if(!c||c==='none'||c==='transparent')return'#000000';if(/^#[0-9a-f]{6}$/i.test(c))return c;if(/^#[0-9a-f]{3}$/i.test(c))return'#'+c[1]+c[1]+c[2]+c[2]+c[3]+c[3];if(c.startsWith('rgb')){const m=c.match(/(\d+)/g);if(m?.length>=3)return'#'+m.slice(0,3).map(n=>(+n).toString(16).padStart(2,'0')).join('');}try{if(!colorCanvasCtx)return'#000000';colorCanvasCtx.fillStyle=c;return colorCanvasCtx.fillStyle;}catch(e){}return'#000000';}
 function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
 
 // Auto-layout engine
