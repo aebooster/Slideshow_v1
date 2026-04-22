@@ -202,6 +202,19 @@ function nodeSvgTag(t){
   if('VECTOR BOOLEAN_OPERATION STAR POLYGON'.split(' ').includes(x))return'path';
   return null;
 }
+function adaptMatchedElement(el,type){
+  if(!el)return el;
+  const want=nodeSvgTag(type);
+  if(!want)return el;
+  const tag=el.tagName.toLowerCase();
+  const ok = tag===want || (want==='path'&&'path polygon polyline'.includes(tag)) || (want==='ellipse'&&'circle ellipse'.includes(tag));
+  if(ok)return el;
+  if(tag==='g'){
+    const found = el.querySelector(want==='path'?'path,polygon,polyline':want==='ellipse'?'ellipse,circle':want);
+    if(found)return found;
+  }
+  return el;
+}
 function matchLayoutNodes(root){
   layoutToSvg.clear();
   if(!svg)return;
@@ -246,6 +259,7 @@ function matchLayoutNodes(root){
       }
     }
     if(el){
+      el=adaptMatchedElement(el,n.type);
       layoutToSvg.set(n.id,el);used.add(el);matched++;
       if(samples.length<20)samples.push({jsonId:n.id,jsonName:n.name||'',type:n.type||'',svgId:el.getAttribute('id')||el.getAttribute('data-figma-id')||'',svgTag:el.tagName.toLowerCase(),mode});
     }else if(misses.length<20){
