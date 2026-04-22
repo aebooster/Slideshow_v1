@@ -162,11 +162,69 @@ function mapSVG(){
   });
 }
 
+function walkNodes(n,fn){
+  if(!n||typeof n!=='object')return;
+  fn(n);
+  if(Array.isArray(n.children))n.children.forEach(c=>walkNodes(c,fn));
+}
+
+function resolveLayoutRoot(data){
+  if(!data||typeof data!=='object')return null;
+  if(data.layoutJson)return resolveLayoutRoot(data.layoutJson);
+  if(data.layout)return resolveLayoutRoot(data.layout);
+  if(data.document)return resolveLayoutRoot(data.document);
+  if(data.root)return resolveLayoutRoot(data.root);
+  if(Array.isArray(data))return resolveLayoutRoot(data[0]);
+  if(data.nodes&&typeof data.nodes==='object'){
+    const vals=Object.values(data.nodes);
+    for(const v of vals){const r=resolveLayoutRoot(v?.document||v);if(r)return r;}
+  }
+  const all=[];
+  walkNodes(data,n=>all.push(n));
+  if(svgMap.size){
+    const bySvg=all.find(n=>n?.id&&svgMap.has(n.id));
+    if(bySvg)return bySvg;
+  }
+  if(data.type==='DOCUMENT'&&Array.isArray(data.children)&&data.children.length)return data.children[0];
+  return data;
+}
+
+function wrapText(el,text,maxWidth){
+  const fs=parseFloat(el.getAttribute('font-size'))||16;
+  const x=parseFloat(el.getAttribute('x'))||0;
+  const y=parseFloat(el.getAttribute('y'))||fs;
+  const lh=fs*1.2;
+  if(!maxWidth||!isFinite(maxWidth)||maxWidth<=0){el.textContent=text;return;}
+  const lines=[];
+  text.split('\n').forEach(p=>{
+    const words=(p||'').trim().split(/\s+/).filter(Boolean);
+    if(!words.length){lines.push('');return;}
+    let line='';
+    words.forEach(w=>{
+      const test=line?line+' '+w:w;
+      const t=document.createElementNS('http://www.w3.org/2000/svg','tspan');
+      t.textContent=test;el.appendChild(t);
+      const long=t.getComputedTextLength()>maxWidth;
+      t.remove();
+      if(long&&line){lines.push(line);line=w;}else line=test;
+    });
+    lines.push(line);
+  });
+  el.innerHTML='';
+  lines.forEach((ln,i)=>{
+    const t=document.createElementNS('http://www.w3.org/2000/svg','tspan');
+    t.setAttribute('x',x);
+    t.setAttribute('y',y+i*lh);
+    t.textContent=ln;
+    el.appendChild(t);
+  });
+}
+
 function measureNode(n){
   const el = svgMap.get(n.id);
 
   if(n.type==='TEXT' && el){
-    el.textContent = n.text.content;
+    wrapText(el,n.text.content,n.text.maxWidth);
     const box = el.getBBox();
     n.size.w = n.text.maxWidth || box.width;
     n.size.h = box.height;
@@ -227,9 +285,10 @@ function renderNode(n){
   if(!el) return;
 
   if(n.type==='TEXT'){
+    const fs=parseFloat(el.getAttribute('font-size'))||16;
     el.setAttribute('x',n.pos.x);
-    el.setAttribute('y',n.pos.y+16);
-    el.textContent = n.text.content;
+    el.setAttribute('y',n.pos.y+fs);
+    wrapText(el,n.text.content,n.text.maxWidth);
 
     el.onclick=()=>{
       const val = prompt('Edit text',n.text.content);
@@ -316,7 +375,9 @@ function tagA(el){const id='n'+(nc++);el.dataset.nid=id;nM.set(id,el);for(const 
 
 function loadLayoutJSON(json){
   LM.clear();
-  rootNode = build(json);
+  const root = resolveLayoutRoot(json);
+  if(!root){console.warn('Layout root not found');return;}
+  rootNode = build(root);
   relayout();
 }
 
