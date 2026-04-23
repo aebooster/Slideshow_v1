@@ -1013,6 +1013,11 @@ function sTr(el,x,y){
 }
 function moveByDelta(el,dx,dy){
   if(!el||(!dx&&!dy))return;
+  const tag=el.tagName?.toLowerCase?.();
+  if(tag==='g'&&el!==svg){
+    [...el.children].forEach(ch=>moveByDelta(ch,dx,dy));
+    return;
+  }
   const pi=pA(el);
   if(pi&&pi._t){
     const t=gTr(el);
