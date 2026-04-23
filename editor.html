@@ -1058,11 +1058,8 @@ for(const ay of ayOpts)for(const ax of axOpts){
   h+=`<div class="anc-dot${isAct?' act':''}" data-anc="${ax},${ay}"><span class="dp"></span></div>`;
 }
 h+=`</div><span class="anc-lbl">Якорь при<br>ресайзе</span></div>`;
-<<<<<<< codex/optimize-code-7di86j
+h+=`<div class="pig" id="pI" data-role="pos-grid">`;if(pi._t){const t=gTr(el);let b={x:0,y:0,width:0,height:0};try{b=el.getBBox();}catch(e){}if((!b.width&&!b.height))b=getElementMetrics(el);h+=mI('X','tx',t.x)+mI('Y','ty',t.y)+`<div class="pip"><span class="pil">W</span><input class="pin" type="number" step="1" value="${Math.round(b.width*100)/100}" disabled></div><div class="pip"><span class="pil">H</span><input class="pin" type="number" step="1" value="${Math.round(b.height*100)/100}" disabled></div>`;}else for(const[l,a]of Object.entries(pi))h+=mI(l.toUpperCase(),a,parseFloat(el.getAttribute(a))||0);h+=`</div></div>`;}
 h+=`<div class="pig" id="pI" data-role="pos-grid">`;if(pi._t){let b={x:0,y:0,width:0,height:0};try{b=el.getBBox();}catch(e){}if((!b.width&&!b.height))b=getElementMetrics(el);h+=mI('X','gx',b.x)+mI('Y','gy',b.y)+`<div class="pip"><span class="pil">W</span><input class="pin" type="number" step="1" value="${Math.round(b.width*100)/100}" disabled></div><div class="pip"><span class="pil">H</span><input class="pin" type="number" step="1" value="${Math.round(b.height*100)/100}" disabled></div>`;}else for(const[l,a]of Object.entries(pi))h+=mI(l.toUpperCase(),a,parseFloat(el.getAttribute(a))||0);h+=`</div></div>`;}
-=======
-h+=`<div class="pig" id="pI" data-role="pos-grid">`;if(pi._t){const b=getElementMetrics(el);h+=mI('X','gx',b.x)+mI('Y','gy',b.y)+`<div class="pip"><span class="pil">W</span><input class="pin" type="number" step="1" value="${Math.round(b.width*100)/100}" disabled></div><div class="pip"><span class="pil">H</span><input class="pin" type="number" step="1" value="${Math.round(b.height*100)/100}" disabled></div>`;}else for(const[l,a]of Object.entries(pi))h+=mI(l.toUpperCase(),a,parseFloat(el.getAttribute(a))||0);h+=`</div></div>`;}
->>>>>>> main
 // Layout section (groups only)
 if(tag==='g'&&!isR){
   const ly=LAY.get(nid)||{on:false,dir:'v',gap:0,pt:0,pr:0,pb:0,pl:0,align:'start'};
@@ -1201,23 +1198,20 @@ const sizeAttrs=new Set(['width','height','r','rx','ry','w','h']);
 pw.querySelectorAll('.pin').forEach(i=>i.addEventListener('input',()=>{
   const a=i.dataset.pa,v=+i.value||0;
   if(tf){
-    if(a!=='gx'&&a!=='gy')return;
+    if(a!=='tx'&&a!=='ty')return;
     const nVal=Number(i.value);
     if(!Number.isFinite(nVal))return;
-<<<<<<< codex/optimize-code-7di86j
+    const t=gTr(el);
+    if(a==='tx')sTr(el,Math.round(nVal*10)/10,t.y);
+    else sTr(el,t.x,Math.round(nVal*10)/10);
+    const nt=gTr(el);
+    const xI=pw.querySelector('[data-pa="tx"]'),yI=pw.querySelector('[data-pa="ty"]');
+    if(xI)xI.value=Math.round(nt.x*10)/10;
+    if(yI)yI.value=Math.round(nt.y*10)/10;
     let b={x:0,y:0,width:0,height:0};try{b=el.getBBox();}catch(e){}if((!b.width&&!b.height))b=getElementMetrics(el);const t=gTr(el);
     if(a==='gx')sTr(el,Math.round((t.x+(nVal-b.x))*10)/10,t.y);
     else sTr(el,t.x,Math.round((t.y+(nVal-b.y))*10)/10);
     let nb={x:0,y:0,width:0,height:0};try{nb=el.getBBox();}catch(e){}if((!nb.width&&!nb.height))nb=getElementMetrics(el);
-=======
-    const b=getElementMetrics(el),t=gTr(el);
-    if(a==='gx')sTr(el,Math.round((t.x+(nVal-b.x))*10)/10,t.y);
-    else sTr(el,t.x,Math.round((t.y+(nVal-b.y))*10)/10);
-    const nb=getElementMetrics(el);
->>>>>>> main
-    const xI=pw.querySelector('[data-pa="gx"]'),yI=pw.querySelector('[data-pa="gy"]');
-    if(xI)xI.value=Math.round(nb.x*10)/10;
-    if(yI)yI.value=Math.round(nb.y*10)/10;
     hl(el);
     return;
   }
