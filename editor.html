@@ -982,7 +982,20 @@ function gTr(el){
   if(mm)return{x:+mm[1]||0,y:+mm[2]||0};
   return{x:0,y:0};
 }
-function sTr(el,x,y){let t=el.getAttribute('transform')||'';t=/translate\(/.test(t)?t.replace(/translate\([^)]*\)/,`translate(${x},${y})`):`translate(${x},${y}) ${t}`.trim();el.setAttribute('transform',t);}
+function sTr(el,x,y){
+  let t=el.getAttribute('transform')||'';
+  if(/translate\(/.test(t)){
+    t=t.replace(/translate\([^)]*\)/,`translate(${x},${y})`);
+  }else if(/matrix\(/.test(t)){
+    t=t.replace(
+      /matrix\(\s*([-\d.eE]+)[ ,]+([-\d.eE]+)[ ,]+([-\d.eE]+)[ ,]+([-\d.eE]+)[ ,]+([-\d.eE]+)[ ,]+([-\d.eE]+)\s*\)/,
+      (_,a,b,c,d)=>`matrix(${a} ${b} ${c} ${d} ${x} ${y})`
+    );
+  }else{
+    t=`translate(${x},${y}) ${t}`.trim();
+  }
+  el.setAttribute('transform',t);
+}
 
 // Alignment
 function alignEl(dir){
