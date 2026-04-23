@@ -480,6 +480,25 @@ function getElementMetrics(el){
   }
   return b;
 }
+function getVisualMetrics(el){
+  if(!el)return{x:0,y:0,width:0,height:0};
+  try{
+    const svgRoot=el.ownerSVGElement||svg;
+    const r=el.getBoundingClientRect?.();
+    const inv=svgRoot?.getScreenCTM?.()?.inverse?.();
+    if(r&&inv&&isFinite(r.left)&&isFinite(r.top)&&isFinite(r.right)&&isFinite(r.bottom)){
+      const p1=new DOMPoint(r.left,r.top).matrixTransform(inv);
+      const p2=new DOMPoint(r.right,r.bottom).matrixTransform(inv);
+      return {
+        x:Math.min(p1.x,p2.x),
+        y:Math.min(p1.y,p2.y),
+        width:Math.max(0,Math.abs(p2.x-p1.x)),
+        height:Math.max(0,Math.abs(p2.y-p1.y))
+      };
+    }
+  }catch(e){}
+  return getElementMetrics(el);
+}
 
 function measureNode(n){
   const el = layoutToSvg.get(n.id)||svgMap.get(n.id);
@@ -962,11 +981,7 @@ function alignMulti(dir){
     else if(dir==='cy')dy=cy-b.height/2-b.y;
     else if(dir==='bottom')dy=maxY-b.height-b.y;
     if(!dx&&!dy)return;
-    const pi=pA(el);
-    if(pi&&pi._t){const t=gTr(el);sTr(el,Math.round((t.x+dx)*10)/10,Math.round((t.y+dy)*10)/10);}
-    else if(pi&&pi.x1){['x1','x2'].forEach(a=>el.setAttribute(a,Math.round((+el.getAttribute(a)+dx)*10)/10));['y1','y2'].forEach(a=>el.setAttribute(a,Math.round((+el.getAttribute(a)+dy)*10)/10));}
-    else if(pi){const xa=pi.x||pi.cx||'x',ya=pi.y||pi.cy||'y';if(dx)el.setAttribute(xa,Math.round(((+el.getAttribute(xa)||0)+dx)*10)/10);if(dy)el.setAttribute(ya,Math.round(((+el.getAttribute(ya)||0)+dy)*10)/10);}
-    else{const t=gTr(el);sTr(el,Math.round((t.x+dx)*10)/10,Math.round((t.y+dy)*10)/10);}
+    moveByDelta(el,dx,dy);
   });
   hl(selEl);
 }
@@ -982,7 +997,77 @@ function gTr(el){
   if(mm)return{x:+mm[1]||0,y:+mm[2]||0};
   return{x:0,y:0};
 }
-function sTr(el,x,y){let t=el.getAttribute('transform')||'';t=/translate\(/.test(t)?t.replace(/translate\([^)]*\)/,`translate(${x},${y})`):`translate(${x},${y}) ${t}`.trim();el.setAttribute('transform',t);}
+function sTr(el,x,y){
+  let t=el.getAttribute('transform')||'';
+  if(/translate\(/.test(t)){
+    t=t.replace(/translate\([^)]*\)/,`translate(${x},${y})`);
+  }else if(/matrix\(/.test(t)){
+    t=t.replace(
+      /matrix\(\s*([-\d.eE]+)[ ,]+([-\d.eE]+)[ ,]+([-\d.eE]+)[ ,]+([-\d.eE]+)[ ,]+([-\d.eE]+)[ ,]+([-\d.eE]+)\s*\)/,
+      (_,a,b,c,d)=>`matrix(${a} ${b} ${c} ${d} ${x} ${y})`
+    );
+  }else{
+    t=`translate(${x},${y}) ${t}`.trim();
+  }
+  el.setAttribute('transform',t);
+}
+function moveByDelta(el,dx,dy){
+  if(!el||(!dx&&!dy))return;
+  const pi=pA(el);
+  if(pi&&pi._t){
+    const t=gTr(el);
+    sTr(el,Math.round((t.x+dx)*10)/10,Math.round((t.y+dy)*10)/10);
+  }else if(pi&&pi.x1){
+    ['x1','x2'].forEach(a=>el.setAttribute(a,Math.round((+el.getAttribute(a)+dx)*10)/10));
+    ['y1','y2'].forEach(a=>el.setAttribute(a,Math.round((+el.getAttribute(a)+dy)*10)/10));
+  }else if(pi){
+    const xa=pi.x||pi.cx||'x',ya=pi.y||pi.cy||'y';
+    if(dx)el.setAttribute(xa,Math.round(((+el.getAttribute(xa)||0)+dx)*10)/10);
+    if(dy)el.setAttribute(ya,Math.round(((+el.getAttribute(ya)||0)+dy)*10)/10);
+  }else{
+    const t=gTr(el);
+    sTr(el,Math.round((t.x+dx)*10)/10,Math.round((t.y+dy)*10)/10);
+  }
+}
+function scaleByOrigin(el,sx,sy,ox,oy){
+  if(!el||!Number.isFinite(sx)||!Number.isFinite(sy)||sx<=0||sy<=0)return;
+  const tag=el.tagName.toLowerCase();
+  const n=(a,d=0)=>parseFloat(el.getAttribute(a))||d;
+  if(tag==='g'){[...el.children].forEach(ch=>scaleByOrigin(ch,sx,sy,ox,oy));return;}
+  if('rect image use foreignObject'.includes(tag)){
+    el.setAttribute('x',Math.round((ox+(n('x')-ox)*sx)*10)/10);
+    el.setAttribute('y',Math.round((oy+(n('y')-oy)*sy)*10)/10);
+    el.setAttribute('width',Math.max(0,Math.round((n('width')*sx)*10)/10));
+    el.setAttribute('height',Math.max(0,Math.round((n('height')*sy)*10)/10));
+    return;
+  }
+  if(tag==='circle'){
+    el.setAttribute('cx',Math.round((ox+(n('cx')-ox)*sx)*10)/10);
+    el.setAttribute('cy',Math.round((oy+(n('cy')-oy)*sy)*10)/10);
+    el.setAttribute('r',Math.max(0,Math.round((n('r')*((sx+sy)/2))*10)/10));
+    return;
+  }
+  if(tag==='ellipse'){
+    el.setAttribute('cx',Math.round((ox+(n('cx')-ox)*sx)*10)/10);
+    el.setAttribute('cy',Math.round((oy+(n('cy')-oy)*sy)*10)/10);
+    el.setAttribute('rx',Math.max(0,Math.round((n('rx')*sx)*10)/10));
+    el.setAttribute('ry',Math.max(0,Math.round((n('ry')*sy)*10)/10));
+    return;
+  }
+  if(tag==='line'){
+    ['x1','x2'].forEach(a=>el.setAttribute(a,Math.round((ox+(n(a)-ox)*sx)*10)/10));
+    ['y1','y2'].forEach(a=>el.setAttribute(a,Math.round((oy+(n(a)-oy)*sy)*10)/10));
+    return;
+  }
+  if('polygon polyline'.includes(tag)){
+    const pts=(el.getAttribute('points')||'').trim().split(/\s+/).map(p=>p.split(',').map(Number)).filter(p=>p.length===2&&Number.isFinite(p[0])&&Number.isFinite(p[1]));
+    const out=pts.map(([x,y])=>`${Math.round((ox+(x-ox)*sx)*10)/10},${Math.round((oy+(y-oy)*sy)*10)/10}`).join(' ');
+    el.setAttribute('points',out);
+    return;
+  }
+  const t=gTr(el),tx=ox*(1-sx),ty=oy*(1-sy);
+  sTr(el,Math.round((t.x+tx)*10)/10,Math.round((t.y+ty)*10)/10);
+}
 
 // Alignment
 function alignEl(dir){
@@ -1058,7 +1143,7 @@ for(const ay of ayOpts)for(const ax of axOpts){
   h+=`<div class="anc-dot${isAct?' act':''}" data-anc="${ax},${ay}"><span class="dp"></span></div>`;
 }
 h+=`</div><span class="anc-lbl">Якорь при<br>ресайзе</span></div>`;
-h+=`<div class="pig" id="pI" data-role="pos-grid">`;if(pi._t){const t=gTr(el);let b={x:0,y:0,width:0,height:0};try{b=el.getBBox();}catch(e){}if((!b.width&&!b.height))b=getElementMetrics(el);h+=mI('X','tx',t.x)+mI('Y','ty',t.y)+`<div class="pip"><span class="pil">W</span><input class="pin" type="number" step="1" value="${Math.round(b.width*100)/100}" disabled></div><div class="pip"><span class="pil">H</span><input class="pin" type="number" step="1" value="${Math.round(b.height*100)/100}" disabled></div>`;}else for(const[l,a]of Object.entries(pi))h+=mI(l.toUpperCase(),a,parseFloat(el.getAttribute(a))||0);h+=`</div></div>`;}
+h+=`<div class="pig" id="pI" data-role="pos-grid">`;if(pi._t){const b=getVisualMetrics(el);h+=mI('X','tx',b.x)+mI('Y','ty',b.y)+mI('W','gw',b.width)+mI('H','gh',b.height);}else for(const[l,a]of Object.entries(pi))h+=mI(l.toUpperCase(),a,parseFloat(el.getAttribute(a))||0);h+=`</div></div>`;}
 // Layout section (groups only)
 if(tag==='g'&&!isR){
   const ly=LAY.get(nid)||{on:false,dir:'v',gap:0,pt:0,pr:0,pb:0,pl:0,align:'start'};
@@ -1197,16 +1282,26 @@ const sizeAttrs=new Set(['width','height','r','rx','ry','w','h']);
 pw.querySelectorAll('.pin').forEach(i=>i.addEventListener('input',()=>{
   const a=i.dataset.pa,v=+i.value||0;
   if(tf){
-    if(a!=='tx'&&a!=='ty')return;
-    const nVal=Number(i.value);
-    if(!Number.isFinite(nVal))return;
-    const t=gTr(el);
-    if(a==='tx')sTr(el,Math.round(nVal*10)/10,t.y);
-    else sTr(el,t.x,Math.round(nVal*10)/10);
-    const nt=gTr(el);
-    const xI=pw.querySelector('[data-pa="tx"]'),yI=pw.querySelector('[data-pa="ty"]');
-    if(xI)xI.value=Math.round(nt.x*10)/10;
-    if(yI)yI.value=Math.round(nt.y*10)/10;
+    if(!['tx','ty','gw','gh'].includes(a))return;
+    let b=getVisualMetrics(el);
+    if(a==='tx'||a==='ty'){
+      const nVal=Number(i.value);
+      if(!Number.isFinite(nVal))return;
+      const dx=(a==='tx')?nVal-b.x:0;
+      const dy=(a==='ty')?nVal-b.y:0;
+      moveByDelta(el,dx,dy);
+    }else{
+      const wI=pw.querySelector('[data-pa="gw"]'),hI=pw.querySelector('[data-pa="gh"]');
+      const tw=Math.max(0,Number(wI?.value)),th=Math.max(0,Number(hI?.value));
+      if(!Number.isFinite(tw)||!Number.isFinite(th)||!b.width||!b.height)return;
+      scaleByOrigin(el,tw/b.width,th/b.height,b.x,b.y);
+    }
+    b=getVisualMetrics(el);
+    const xI=pw.querySelector('[data-pa="tx"]'),yI=pw.querySelector('[data-pa="ty"]'),wI=pw.querySelector('[data-pa="gw"]'),hI=pw.querySelector('[data-pa="gh"]');
+    if(xI)xI.value=Math.round((b.x||0)*10)/10;
+    if(yI)yI.value=Math.round((b.y||0)*10)/10;
+    if(wI)wI.value=Math.round((b.width||0)*10)/10;
+    if(hI)hI.value=Math.round((b.height||0)*10)/10;
     hl(el);
     return;
   }
