@@ -413,6 +413,29 @@ function wrapText(el,text,maxWidth){
   });
 }
 
+function getMappedLayoutNodeByElement(el){
+  for(const [layoutId,svgEl] of layoutToSvg.entries()){
+    if(svgEl===el)return LM.get(layoutId)||null;
+  }
+  return null;
+}
+function getElementMetrics(el){
+  let b={x:0,y:0,width:0,height:0};
+  try{b=el.getBBox();}catch(e){}
+  if((!b.width&&!b.height)&&el?.tagName?.toLowerCase()==='g'){
+    const tr=gTr(el);
+    b.x=tr.x;
+    b.y=tr.y;
+    const ln=getMappedLayoutNodeByElement(el);
+    if(ln){
+      b.width=ln.size?.w||b.width;
+      b.height=ln.size?.h||b.height;
+      if(!b.x&&!b.y&&ln.pos){b.x=ln.pos.x||0;b.y=ln.pos.y||0;}
+    }
+  }
+  return b;
+}
+
 function measureNode(n){
   const el = layoutToSvg.get(n.id)||svgMap.get(n.id);
 
@@ -494,8 +517,11 @@ function renderNode(n){
   }else{
     const tag = el.tagName.toLowerCase();
     if(tag==='g'){
-      // Keep existing non-translate transforms (matrix/rotate/scale) and only update translate part.
-      sTr(el,n.pos.x,n.pos.y);
+      // Move by delta from current visual bbox to avoid jumps when text reflow changes children bounds.
+      const b=getElementMetrics(el);
+      const t=gTr(el);
+      const dx=n.pos.x-b.x,dy=n.pos.y-b.y;
+      sTr(el,Math.round((t.x+dx)*10)/10,Math.round((t.y+dy)*10)/10);
     }else{
       const hasXY = el.hasAttribute('x')||el.hasAttribute('y');
       if(el.hasAttribute('x')) el.setAttribute('x',n.pos.x);
@@ -962,7 +988,7 @@ for(const ay of ayOpts)for(const ax of axOpts){
   h+=`<div class="anc-dot${isAct?' act':''}" data-anc="${ax},${ay}"><span class="dp"></span></div>`;
 }
 h+=`</div><span class="anc-lbl">Якорь при<br>ресайзе</span></div>`;
-h+=`<div class="pig" id="pI" data-role="pos-grid">`;if(pi._t){let b={x:0,y:0,width:0,height:0};try{b=el.getBBox();}catch(e){}h+=mI('X','gx',b.x)+mI('Y','gy',b.y)+mI('W','gw',b.width)+mI('H','gh',b.height);}else for(const[l,a]of Object.entries(pi))h+=mI(l.toUpperCase(),a,parseFloat(el.getAttribute(a))||0);h+=`</div></div>`;}
+h+=`<div class="pig" id="pI" data-role="pos-grid">`;if(pi._t){const b=getElementMetrics(el);h+=mI('X','gx',b.x)+mI('Y','gy',b.y)+mI('W','gw',b.width)+mI('H','gh',b.height);}else for(const[l,a]of Object.entries(pi))h+=mI(l.toUpperCase(),a,parseFloat(el.getAttribute(a))||0);h+=`</div></div>`;}
 // Layout section (groups only)
 if(tag==='g'&&!isR){
   const ly=LAY.get(nid)||{on:false,dir:'v',gap:0,pt:0,pr:0,pb:0,pl:0,align:'start'};
@@ -1102,11 +1128,11 @@ pw.querySelectorAll('.pin').forEach(i=>i.addEventListener('input',()=>{
   const a=i.dataset.pa,v=+i.value||0;
   if(tf){
     if(a==='gx'||a==='gy'){
-      let b={x:0,y:0};try{b=el.getBBox();}catch(e){}
+      const b=getElementMetrics(el)
       const t=gTr(el);
       if(a==='gx')sTr(el,Math.round((t.x+(v-b.x))*10)/10,t.y);
       else sTr(el,t.x,Math.round((t.y+(v-b.y))*10)/10);
-      let nb={x:0,y:0,width:0,height:0};try{nb=el.getBBox();}catch(e){}
+      const nb=getElementMetrics(el)
       const xI=pw.querySelector('[data-pa="gx"]'),yI=pw.querySelector('[data-pa="gy"]'),wI=pw.querySelector('[data-pa="gw"]'),hI=pw.querySelector('[data-pa="gh"]');
       if(xI)xI.value=Math.round(nb.x*10)/10; if(yI)yI.value=Math.round(nb.y*10)/10;
       if(wI)wI.value=Math.round(nb.width*10)/10; if(hI)hI.value=Math.round(nb.height*10)/10;
