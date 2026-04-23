@@ -475,6 +475,47 @@ function getElementMetrics(el){
   let b={x:0,y:0,width:0,height:0};
   try{b=el.getBBox();}catch(e){}
   if((!b.width&&!b.height)&&el?.tagName?.toLowerCase()==='g'){
+    const svgRoot=el.ownerSVGElement||svg;
+    const inv=svgRoot?.getScreenCTM?.()?.inverse?.();
+    if(inv){
+      let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+      const nodes=[el,...el.querySelectorAll('*')];
+      nodes.forEach(node=>{
+        const r=node.getBoundingClientRect?.();
+        if(!r||!r.width||!r.height)return;
+        const p1=new DOMPoint(r.left,r.top).matrixTransform(inv);
+        const p2=new DOMPoint(r.right,r.bottom).matrixTransform(inv);
+        minX=Math.min(minX,p1.x,p2.x);minY=Math.min(minY,p1.y,p2.y);
+        maxX=Math.max(maxX,p1.x,p2.x);maxY=Math.max(maxY,p1.y,p2.y);
+      });
+      if(isFinite(minX)&&isFinite(minY)&&isFinite(maxX)&&isFinite(maxY)){
+        b={x:minX,y:minY,width:Math.max(0,maxX-minX),height:Math.max(0,maxY-minY)};
+      }
+    }
+    if(!b.width&&!b.height){
+      const tr=gTr(el);
+      b.x=tr.x;b.y=tr.y;
+      const ln=getMappedLayoutNodeByElement(el);
+      if(ln){
+        b.width=ln.size?.w||b.width;
+        b.height=ln.size?.h||b.height;
+        if(!b.x&&!b.y&&ln.pos){b.x=ln.pos.x||0;b.y=ln.pos.y||0;}
+      }
+    }
+  }
+  return b;
+}
+
+function getMappedLayoutNodeByElement(el){
+  for(const [layoutId,svgEl] of layoutToSvg.entries()){
+    if(svgEl===el)return LM.get(layoutId)||null;
+  }
+  return null;
+}
+function getElementMetrics(el){
+  let b={x:0,y:0,width:0,height:0};
+  try{b=el.getBBox();}catch(e){}
+  if((!b.width&&!b.height)&&el?.tagName?.toLowerCase()==='g'){
     const tr=gTr(el);
     b.x=tr.x;
     b.y=tr.y;
@@ -589,14 +630,17 @@ function layoutNode(n,x=0,y=0){
   });
 }
 
-function renderNode(n){
+function renderNode(n,parentPos={x:0,y:0}){
   const el = layoutToSvg.get(n.id)||svgMap.get(n.id);
   if(!el) return;
 
+  const lx=n.pos.x-parentPos.x;
+  const ly=n.pos.y-parentPos.y;
+
   if(n.type==='TEXT'){
     const fs=parseFloat(el.getAttribute('font-size'))||16;
-    el.setAttribute('x',n.pos.x);
-    el.setAttribute('y',n.pos.y+fs);
+    el.setAttribute('x',lx);
+    el.setAttribute('y',ly+fs);
     wrapText(el,n.text.content,n.text.maxWidth);
 
     el.onclick=()=>{
@@ -610,22 +654,19 @@ function renderNode(n){
   }else{
     const tag = el.tagName.toLowerCase();
     if(tag==='g'){
-      // Move by delta from current visual bbox to avoid jumps when text reflow changes children bounds.
-      const b=getElementMetrics(el);
-      const t=gTr(el);
-      const dx=n.pos.x-b.x,dy=n.pos.y-b.y;
-      sTr(el,Math.round((t.x+dx)*10)/10,Math.round((t.y+dy)*10)/10);
+      // For nested groups, use local coordinates relative to parent to avoid cumulative drift.
+      sTr(el,Math.round(lx*10)/10,Math.round(ly*10)/10);
     }else{
       const hasXY = el.hasAttribute('x')||el.hasAttribute('y');
-      if(el.hasAttribute('x')) el.setAttribute('x',n.pos.x);
-      if(el.hasAttribute('y')) el.setAttribute('y',n.pos.y);
+      if(el.hasAttribute('x')) el.setAttribute('x',lx);
+      if(el.hasAttribute('y')) el.setAttribute('y',ly);
       if(el.hasAttribute('width')) el.setAttribute('width',n.size.w);
       if(el.hasAttribute('height')) el.setAttribute('height',n.size.h);
-      if(!hasXY) sTr(el,n.pos.x,n.pos.y);
+      if(!hasXY) sTr(el,Math.round(lx*10)/10,Math.round(ly*10)/10);
     }
   }
 
-  n.children.forEach(renderNode);
+  n.children.forEach(c=>renderNode(c,n.pos));
 }
 
 function relayout(){
